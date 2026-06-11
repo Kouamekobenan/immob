@@ -213,7 +213,7 @@ export default function GerantProperties() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="adresse">Adresse</Label>
               <Input id="adresse" placeholder="12 Rue Principale" {...register('adresse')} className={errors.adresse ? 'border-red-400' : ''} />
@@ -226,7 +226,7 @@ export default function GerantProperties() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="type">Type</Label>
               <select

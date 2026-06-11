@@ -203,7 +203,7 @@ export default function GerantPayments() {
               </div>
 
               {/* Parties */}
-              <div className="grid grid-cols-2 gap-5 text-[11px] font-sans">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-[11px] font-sans">
                 <div className="space-y-1">
                   <p className="font-bold text-slate-400 uppercase text-[9px] tracking-wide">Gérant Mandataire</p>
                   <p className="font-bold text-slate-800">{currentUser.prenom} {currentUser.nom}</p>

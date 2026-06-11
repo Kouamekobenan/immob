@@ -173,7 +173,7 @@ export default function UsersManagement() {
       {/* Edit Modal */}
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Modifier l'utilisateur">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="prenom">Prénom</Label>
               <Input id="prenom" {...register('prenom')} className={errors.prenom ? 'border-red-400' : ''} />

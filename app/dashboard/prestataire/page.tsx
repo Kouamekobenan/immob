@@ -58,7 +58,7 @@ export default function PrestataireDashboard() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={stagger.item} className="grid grid-cols-3 gap-4">
+      <motion.div variants={stagger.item} className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
           { label: 'En cours', value: active.length,       icon: Wrench,       cls: 'bg-amber-50 text-amber-600', border: 'border-amber-100' },
           { label: 'Résolus',  value: resolved.length,     icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
