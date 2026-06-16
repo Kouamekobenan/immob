@@ -163,12 +163,10 @@ export default function BailleurDashboard() {
             </div>
           </Card>
         </motion.div>
-
         {/* Donut occupancy */}
         <motion.div variants={stagger.item}>
           <Card className="p-6 flex flex-col items-center gap-5 h-full justify-center">
             <p className="text-sm font-bold text-slate-800 self-start">Taux d&apos;occupation</p>
-
             <div className="relative h-32 w-32">
               <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
                 <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#f1f5f9" strokeWidth="3.5" />
@@ -187,7 +185,6 @@ export default function BailleurDashboard() {
                 <span className="text-[10px] font-semibold text-slate-400 mt-0.5">Occupés</span>
               </div>
             </div>
-
             <ul className="w-full space-y-2 text-xs font-semibold">
               <li className="flex justify-between">
                 <span className="flex items-center gap-1.5 text-slate-500">
@@ -209,7 +206,6 @@ export default function BailleurDashboard() {
                 <span className="text-slate-700 font-bold">{formatCurrency(myContracts.reduce((s, c) => s + c.loyerTotal, 0))}</span>
               </li>
             </ul>
-
             <Link href="/dashboard/bailleur/properties" className="w-full">
               <div className="text-center text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 transition-colors cursor-pointer">
                 Gérer le patrimoine <ArrowRight className="h-3 w-3" />

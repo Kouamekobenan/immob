@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
-import { Wrench, Sparkles, User, Info, CheckCircle, MapPin } from 'lucide-react';
+import { Wrench, Sparkles, User, Info, CheckCircle, MapPin, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { parseApiError } from '@/lib/api';
 import { Ticket, TicketStatus, UrgencyLevel } from '@/types/prisma';
 import { motion } from 'framer-motion';
 
@@ -31,11 +32,14 @@ const statusConfig: Record<TicketStatus, { label: string; cls: string }> = {
 };
 
 export default function GerantTickets() {
-  const { currentUser, tickets, properties, users, assignTicket } = useAppStore();
+  const { currentUser, tickets, properties, users, assignTicket, updateTicketStatus } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'ALL'>('ALL');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedPrestataire, setSelectedPrestataire] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const [closingTicketId, setClosingTicketId] = useState<string | null>(null);
 
   if (!currentUser) return null;
 
@@ -48,13 +52,39 @@ export default function GerantTickets() {
   const openAssignModal = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setSelectedPrestataire(prestataires[0]?.id || '');
+    setAssignError('');
     setIsAssignOpen(true);
   };
 
-  const handleAssignSubmit = () => {
-    if (!selectedTicket || !selectedPrestataire) return;
-    assignTicket(selectedTicket.id, selectedPrestataire);
+  const handleCloseModal = () => {
     setIsAssignOpen(false);
+    setAssignError('');
+    setSelectedTicket(null);
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!selectedTicket || !selectedPrestataire) return;
+    setAssignError('');
+    setIsAssigning(true);
+    try {
+      await assignTicket(selectedTicket.id, selectedPrestataire);
+      handleCloseModal();
+    } catch (err) {
+      setAssignError(parseApiError(err));
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleCloseTicket = async (ticketId: string) => {
+    setClosingTicketId(ticketId);
+    try {
+      await updateTicketStatus(ticketId, 'CLOTURE');
+    } catch {
+      // silently ignore — UI stays consistent via store
+    } finally {
+      setClosingTicketId(null);
+    }
   };
 
   return (
@@ -109,6 +139,7 @@ export default function GerantTickets() {
             const assignedTech = ticket.prestataireId ? users.find(u => u.id === ticket.prestataireId) : null;
             const ugCfg        = urgencyConfig[ticket.urgence];
             const stCfg        = statusConfig[ticket.statut];
+            const isClosing    = closingTicketId === ticket.id;
 
             return (
               <motion.div key={ticket.id} variants={stagger.item}>
@@ -131,7 +162,7 @@ export default function GerantTickets() {
                         </p>
                       </div>
 
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex items-center gap-2">
                         {ticket.statut === 'OUVERT' ? (
                           <Button size="sm" onClick={() => openAssignModal(ticket)} className="gap-1.5 font-bold">
                             <Sparkles className="h-3.5 w-3.5" />
@@ -143,10 +174,22 @@ export default function GerantTickets() {
                             Artisan : <strong className="ml-1">{assignedTech?.prenom} {assignedTech?.nom}</strong>
                           </div>
                         ) : ticket.statut === 'RESOLU' ? (
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Résolu par {assignedTech?.prenom} {assignedTech?.nom}
-                          </div>
+                          <>
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              Résolu par {assignedTech?.prenom} {assignedTech?.nom}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCloseTicket(ticket.id)}
+                              disabled={isClosing}
+                              className="gap-1.5 text-slate-600 font-semibold"
+                            >
+                              {isClosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              Clôturer
+                            </Button>
+                          </>
                         ) : (
                           <span className="text-xs text-slate-400 italic">Archivé</span>
                         )}
@@ -195,7 +238,7 @@ export default function GerantTickets() {
       </div>
 
       {/* Assign Modal */}
-      <Modal isOpen={isAssignOpen} onClose={() => setIsAssignOpen(false)} title="Assignation du prestataire technique">
+      <Modal isOpen={isAssignOpen} onClose={handleCloseModal} title="Assignation du prestataire technique">
         <form onSubmit={e => { e.preventDefault(); handleAssignSubmit(); }} className="space-y-4">
           <div className="flex gap-2.5 p-3 bg-blue-50 border border-blue-100 rounded-xl">
             <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
@@ -228,7 +271,8 @@ export default function GerantTickets() {
                 value={selectedPrestataire}
                 onChange={e => setSelectedPrestataire(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer font-semibold text-slate-700"
+                disabled={isAssigning}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer font-semibold text-slate-700 disabled:opacity-55"
               >
                 {prestataires.map(tech => (
                   <option key={tech.id} value={tech.id}>
@@ -239,9 +283,20 @@ export default function GerantTickets() {
             )}
           </div>
 
+          {assignError && (
+            <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+              {assignError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-            <Button variant="outline" type="button" onClick={() => setIsAssignOpen(false)}>Annuler</Button>
-            <Button type="submit" disabled={prestataires.length === 0}>Mandater le prestataire</Button>
+            <Button variant="outline" type="button" onClick={handleCloseModal} disabled={isAssigning}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={prestataires.length === 0 || isAssigning} className="gap-1.5">
+              {isAssigning && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Mandater le prestataire
+            </Button>
           </div>
         </form>
       </Modal>

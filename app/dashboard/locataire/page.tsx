@@ -5,7 +5,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+
+function formatMontant(v: number) {
+  return `${new Intl.NumberFormat('fr-FR').format(v)} FCFA`;
+}
 import {
   CreditCard, Wrench, Building2, CheckCircle2,
   AlertTriangle, ArrowRight, FileText, MapPin, Calendar, Receipt
@@ -65,7 +69,7 @@ export default function LocataireDashboard() {
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Loyer du mois — {currentPeriod}</p>
                   {activeContract ? (
                     <p className="text-3xl font-extrabold text-slate-800 mt-1 tracking-tight">
-                      {formatCurrency(activeContract.loyerTotal)}
+                      {formatMontant(activeContract.loyerTotal)}
                     </p>
                   ) : (
                     <p className="text-xl font-bold text-slate-400 mt-1">Aucun bail actif</p>
@@ -119,7 +123,7 @@ export default function LocataireDashboard() {
                   </Button>
                 </Link>
               ) : null}
-              <Link href="/dashboard/locataire/payments/pay">
+              <Link href="/dashboard/locataire/contract">
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Receipt className="h-4 w-4" />
                   Historique des paiements
@@ -162,9 +166,9 @@ export default function LocataireDashboard() {
                   <ul className="space-y-2 text-xs">
                     {[
                       { label: 'Début du bail', value: activeContract ? formatDate(activeContract.dateDebut) : '—', icon: Calendar },
-                      { label: 'Loyer de base', value: formatCurrency(prop.loyerDeBase) },
-                      { label: 'Charges', value: formatCurrency(prop.charges) },
-                      { label: 'Total mensuel', value: formatCurrency(prop.loyerDeBase + prop.charges), bold: true },
+                      { label: 'Loyer de base', value: formatMontant(prop.loyerDeBase) },
+                      { label: 'Charges', value: formatMontant(prop.charges) },
+                      { label: 'Total mensuel', value: formatMontant(prop.loyerDeBase + prop.charges), bold: true },
                     ].map(({ label, value, icon: Icon, bold }) => (
                       <li key={label} className="flex justify-between items-center">
                         <span className="text-slate-400 font-medium flex items-center gap-1">
@@ -268,7 +272,7 @@ export default function LocataireDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-extrabold text-slate-700">{formatCurrency(pay.montant)}</span>
+                        <span className="text-sm font-extrabold text-slate-700">{formatMontant(pay.montant)}</span>
                         <Badge className={`text-[9px] font-bold border ${
                           pay.statut === 'PAYE'
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'

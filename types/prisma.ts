@@ -10,18 +10,54 @@ export type PaymentStatus = 'EN_ATTENTE' | 'PAYE' | 'ECHOUE' | 'REJETE';
 
 export type PropertyType = 'APPARTEMENT' | 'STUDIO' | 'VILLA' | 'MAGASIN' | 'AUTRE';
 
-export type NotificationType = 
-  | 'TICKET_STATUT_CHANGE' 
-  | 'NOUVEAU_TICKET_ASSIGNE' 
-  | 'LOYER_DISPONIBLE' 
-  | 'PAIEMENT_VALIDE' 
-  | 'RAPPEL_IMPAYE';
+export type NotificationType =
+  | 'MESSAGE_DIRECT'
+  | 'SYSTEME'
+  | 'TICKET_OUVERT'
+  | 'TICKET_RESOLU'
+  | 'PAIEMENT_REJETE'
+  | 'PAIEMENT_ECHOUE'
+  | 'CONTRAT_CREE'
+  | 'CONTRAT_RESILIE'
+  | 'DEPENSE_CREEE'
+  | 'DEPENSE_PAYEE';
+
+export type ExpenseCategory =
+  | 'PRESTATAIRE'
+  | 'PERSONNEL'
+  | 'FOURNITURES'
+  | 'CHARGES_COMMUNES'
+  | 'ASSURANCE'
+  | 'TAXE_IMPOT'
+  | 'AUTRE';
+
+export type ExpenseStatus = 'EN_ATTENTE' | 'PAYEE' | 'ANNULEE';
+
+export interface Expense {
+  id: string;
+  titre: string;
+  description: string | null;
+  montant: number;
+  date: string;
+  categorie: ExpenseCategory;
+  statut: ExpenseStatus;
+  beneficiaireNom: string;
+  referenceId: string | null;
+  justificatifUrl: string | null;
+  payeurId: string;
+  beneficiaireId: string | null;
+  propertyId: string | null;
+  ticketId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface User {
   id: string;
   email: string;
   nom: string;
   prenom: string;
+  fullName?: string;
   telephone?: string | null;
   role: Role;
   createdAt: string;
@@ -37,6 +73,7 @@ export interface Property {
   type: PropertyType;
   loyerDeBase: number;
   charges: number;
+  loyerTotal?: number;
   estOccupe: boolean;
   bailleurId: string;
   gerantId?: string | null;
@@ -69,7 +106,6 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
 }
-
 export interface Payment {
   id: string;
   montant: number;
@@ -103,5 +139,6 @@ export interface Notification {
   type: NotificationType;
   estLu: boolean;
   userId: string;
+  expediteurId: string | null;
   createdAt: string;
 }

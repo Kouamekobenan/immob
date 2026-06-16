@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/context/app-store-context';
 import {
   LayoutDashboard, Users, ShieldAlert, Building2,
-  FileText, CreditCard, Wrench, LogOut, X
+  FileText, CreditCard, Wrench, LogOut, X, UserCircle, Wallet
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
@@ -45,19 +45,25 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           { label: "Vue d'ensemble", href: '/dashboard/super-admin', icon: LayoutDashboard },
           { label: 'Utilisateurs', href: '/dashboard/super-admin/users', icon: Users },
           { label: "Logs d'audit", href: '/dashboard/super-admin/audit-logs', icon: ShieldAlert },
+          { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
       case 'BAILLEUR':
         return [
           { label: 'Hub Financier', href: '/dashboard/bailleur', icon: LayoutDashboard },
           { label: 'Mes Propriétés', href: '/dashboard/bailleur/properties', icon: Building2 },
+          { label: 'Dépenses', href: '/dashboard/bailleur/expenses', icon: Wallet },
+          { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
       case 'GERANT':
         return [
           { label: 'Centre Opérations', href: '/dashboard/gerant', icon: LayoutDashboard },
           { label: 'Gestion Biens', href: '/dashboard/gerant/properties', icon: Building2 },
+          { label: 'Locataires', href: '/dashboard/gerant/locataires', icon: Users },
           { label: 'Contrats Locatifs', href: '/dashboard/gerant/contracts', icon: FileText },
           { label: 'Suivi Paiements', href: '/dashboard/gerant/payments', icon: CreditCard },
           { label: 'Maintenance', href: '/dashboard/gerant/tickets', icon: Wrench },
+          { label: 'Dépenses', href: '/dashboard/gerant/expenses', icon: Wallet },
+          { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
       case 'LOCATAIRE':
         return [
@@ -65,10 +71,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           { label: 'Mon Contrat', href: '/dashboard/locataire/contract', icon: FileText },
           { label: 'Payer Loyer', href: '/dashboard/locataire/payments/pay', icon: CreditCard },
           { label: 'Tickets Panne', href: '/dashboard/locataire/tickets', icon: Wrench },
+          { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
       case 'PRESTATAIRE':
         return [
           { label: 'Interventions', href: '/dashboard/prestataire', icon: LayoutDashboard },
+          { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
       default:
         return [];
@@ -113,7 +121,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       <div className="p-4 mx-3 my-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1.5 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0">
-            {currentUser.prenom[0]}{currentUser.nom[0]}
+            {currentUser.prenom?.[0] ?? '?'}{currentUser.nom?.[0] ?? ''}
           </div>
           <div className="overflow-hidden">
             <h4 className="text-xs font-semibold text-slate-800 truncate">{currentUser.prenom} {currentUser.nom}</h4>

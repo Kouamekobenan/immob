@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
-import { Wrench, Plus, Clock, Check, AlertCircle, FileImage } from 'lucide-react';
+import { Wrench, Plus, Clock, Check, AlertCircle, FileImage, Loader2, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { parseApiError } from '@/lib/api';
 import { TicketStatus, UrgencyLevel } from '@/types/prisma';
 import { motion } from 'framer-motion';
 
@@ -39,8 +40,10 @@ export default function LocataireTickets() {
   const { currentUser, tickets, contracts, addTicket, properties } = useAppStore();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
-  const [photosSimulated, setPhotosSimulated] = useState<string[]>([]);
-  const [photoActive, setPhotoActive] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -60,29 +63,37 @@ export default function LocataireTickets() {
     .filter(t => t.locataireId === currentUser.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const handleSimulatePhoto = () => {
-    setPhotosSimulated([
-      'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&auto=format&fit=crop&q=60',
-      'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop&q=60',
-    ]);
-    setPhotoActive(true);
+  const handleClose = () => {
+    setIsOpen(false);
+    setFormError('');
+    setSelectedPhotos([]);
+    reset();
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (!myProp) return;
-    addTicket({
-      titre:         data.titre,
-      description:   data.description,
-      urgence:       data.urgence,
-      photos:        photosSimulated,
-      propertyId:    myProp.id,
-      locataireId:   currentUser.id,
-      prestataireId: null,
-    });
-    reset();
-    setPhotosSimulated([]);
-    setPhotoActive(false);
-    setIsOpen(false);
+    setFormError('');
+    setIsSubmitting(true);
+    try {
+      await addTicket(
+        {
+          titre:         data.titre,
+          description:   data.description,
+          urgence:       data.urgence,
+          photos:        [],
+          propertyId:    myProp.id,
+          locataireId:   currentUser.id,
+          prestataireId: null,
+        },
+        selectedPhotos,
+      );
+      handleClose();
+    } catch (err) {
+      setFormError(parseApiError(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderTimeline = (currentStatus: TicketStatus) => {
@@ -220,7 +231,7 @@ export default function LocataireTickets() {
       </div>
 
       {/* New ticket modal */}
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Signaler un incident de panne">
+      <Modal isOpen={isOpen} onClose={handleClose} title="Signaler un incident de panne">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {!myProp && (
             <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-semibold text-red-700">
@@ -233,7 +244,7 @@ export default function LocataireTickets() {
             <Label htmlFor="titre">Quel est le problème ? (Intitulé)</Label>
             <Input
               id="titre"
-              disabled={!myProp}
+              disabled={!myProp || isSubmitting}
               placeholder="ex: Fuite d'eau sous le lavabo"
               {...register('titre')}
               className={errors.titre ? 'border-red-400' : ''}
@@ -245,7 +256,7 @@ export default function LocataireTickets() {
             <Label htmlFor="description">Description détaillée</Label>
             <textarea
               id="description"
-              disabled={!myProp}
+              disabled={!myProp || isSubmitting}
               placeholder="Expliquez la situation précisément (localisation, gravité, fréquence...)"
               rows={4}
               {...register('description')}
@@ -258,7 +269,7 @@ export default function LocataireTickets() {
             <Label htmlFor="urgence">Niveau d&apos;urgence estimé</Label>
             <select
               id="urgence"
-              disabled={!myProp}
+              disabled={!myProp || isSubmitting}
               {...register('urgence')}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer font-semibold text-slate-700 disabled:opacity-55"
             >
@@ -268,39 +279,58 @@ export default function LocataireTickets() {
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Photos du problème</Label>
-            {photoActive ? (
+          {/* File upload */}
+          <div className="space-y-2">
+            <Label>Photos du problème (optionnel)</Label>
+            <label className={`w-full p-4 border border-dashed rounded-xl text-xs font-semibold text-slate-500 flex flex-col items-center gap-1.5 transition-colors ${!myProp || isSubmitting ? 'opacity-50 pointer-events-none cursor-not-allowed' : 'hover:bg-slate-50 hover:border-slate-400 cursor-pointer'}`}>
+              <FileImage className="h-5 w-5 text-slate-400" />
+              <span>Cliquer pour ajouter des photos</span>
+              <span className="text-[10px] text-slate-400 font-normal">JPEG, PNG, WEBP</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={!myProp || isSubmitting}
+                onChange={e => setSelectedPhotos(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            {selectedPhotos.length > 0 && (
               <div className="flex items-center justify-between p-3 border border-dashed border-emerald-300 bg-emerald-50/40 rounded-xl">
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
                   <FileImage className="h-5 w-5 text-emerald-600" />
-                  2 photos simulées chargées
+                  {selectedPhotos.length} photo{selectedPhotos.length !== 1 ? 's' : ''} prête{selectedPhotos.length !== 1 ? 's' : ''}
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setPhotosSimulated([]); setPhotoActive(false); }}
-                  className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
+                  onClick={() => {
+                    setSelectedPhotos([]);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer flex items-center gap-1"
                 >
+                  <X className="h-3 w-3" />
                   Supprimer
                 </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                disabled={!myProp}
-                onClick={handleSimulatePhoto}
-                className="w-full p-4 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 text-xs font-semibold text-slate-500 flex flex-col items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <FileImage className="h-5 w-5 text-slate-400" />
-                <span>Simuler l&apos;envoi de photos de panne</span>
-                <span className="text-[10px] text-slate-400 font-normal">Charge des photos d&apos;incidents réels pour la démonstration</span>
-              </button>
             )}
           </div>
 
+          {formError && (
+            <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+              {formError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Annuler</Button>
-            <Button type="submit" disabled={!myProp}>Déclarer la panne</Button>
+            <Button variant="outline" type="button" onClick={handleClose} disabled={isSubmitting}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={!myProp || isSubmitting} className="gap-1.5">
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSubmitting ? 'Envoi en cours...' : 'Déclarer la panne'}
+            </Button>
           </div>
         </form>
       </Modal>

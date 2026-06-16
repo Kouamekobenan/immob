@@ -10,22 +10,25 @@ import { Menu, ShieldAlert } from 'lucide-react';
 
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, users, loginAsUser } = useAppStore();
+  const { currentUser, isAuthLoading, users, loginAsUser } = useAppStore();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Only redirect once auth check is done
   useEffect(() => {
-    if (!currentUser) {
+    if (!isAuthLoading && !currentUser) {
       router.push('/login');
     }
-  }, [currentUser, router]);
+  }, [currentUser, isAuthLoading, router]);
 
-  if (!currentUser) {
+  if (isAuthLoading || !currentUser) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-          <p className="text-sm font-medium text-slate-500">Redirection vers la connexion...</p>
+          <p className="text-sm font-medium text-slate-500">
+            {isAuthLoading ? 'Chargement...' : 'Redirection vers la connexion...'}
+          </p>
         </div>
       </div>
     );
@@ -95,7 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 onChange={(e) => handleSimulateRole(e.target.value)}
                 className="bg-transparent text-xs font-semibold text-slate-700 border-none outline-none focus:ring-0 cursor-pointer max-w-[120px] md:max-w-[180px]"
               >
-                {users.map((u) => (
+                {users.filter(u => u.id && u.role).map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.prenom} {u.nom} ({u.role.replace('_', ' ')})
                   </option>
@@ -111,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* User Avatar */}
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-sm shadow-inner shrink-0">
-                {currentUser.prenom[0]}{currentUser.nom[0]}
+                {currentUser.prenom?.[0] ?? '?'}{currentUser.nom?.[0] ?? ''}
               </div>
               <div className="hidden md:block text-left leading-none">
                 <span className="text-xs font-bold text-slate-800 block">

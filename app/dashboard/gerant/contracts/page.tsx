@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { parseApiError } from '@/lib/api';
+import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
-import { FileText, Plus, CheckCircle2, XCircle, Calendar } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, XCircle, Calendar, Trash2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -29,9 +31,11 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function GerantContracts() {
-  const { currentUser, contracts, properties, users, addContract, terminateContract } = useAppStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const [loyerTotal, setLoyerTotal] = useState(0);
+  const { currentUser, contracts, properties, users, addContract, terminateContract, deleteContract } = useAppStore();
+  const [isOpen, setIsOpen]             = useState(false);
+  const [loyerTotal, setLoyerTotal]     = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError]       = useState('');
 
   const { register, handleSubmit, reset, watch } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -48,15 +52,15 @@ export default function GerantContracts() {
 
   if (!currentUser) return null;
 
-  const myProperties    = properties.filter(p => p.gerantId === currentUser.id);
-  const myPropertyIds   = myProperties.map(p => p.id);
-  const myContracts     = contracts.filter(c => myPropertyIds.includes(c.propertyId));
-  const vacantProps     = myProperties.filter(p => !p.estOccupe);
-  const locataires      = users.filter(u => u.role === 'LOCATAIRE');
+  const myProperties  = properties.filter(p => p.gerantId === currentUser.id);
+  const myPropertyIds = myProperties.map(p => p.id);
+  const myContracts   = contracts.filter(c => myPropertyIds.includes(c.propertyId));
+  const vacantProps   = myProperties.filter(p => !p.estOccupe);
+  const locataires    = users.filter(u => u.role === 'LOCATAIRE');
 
   const openCreateModal = () => {
     if (vacantProps.length === 0) {
-      alert("Aucun bien vacant disponible sous votre gérance.");
+      alert('Aucun bien vacant disponible sous votre gérance.');
       return;
     }
     const firstVacant = vacantProps[0];
@@ -70,20 +74,40 @@ export default function GerantContracts() {
     setIsOpen(true);
   };
 
-  const onSubmit = (data: FormValues) => {
-    addContract({
-      propertyId:  data.propertyId,
-      locataireId: data.locataireId,
-      dateDebut:   new Date(data.dateDebut).toISOString(),
-      dateFin:     data.dateFin ? new Date(data.dateFin).toISOString() : null,
-      loyerTotal,
-    });
-    setIsOpen(false);
+  const onSubmit = async (data: FormValues) => {
+    setFormError('');
+    setIsSubmitting(true);
+    try {
+      await addContract({
+        propertyId:  data.propertyId,
+        locataireId: data.locataireId,
+        dateDebut:   data.dateDebut,
+        dateFin:     data.dateFin || null,
+        loyerTotal,
+      });
+      setIsOpen(false);
+    } catch (err) {
+      setFormError(parseApiError(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleTerminate = (id: string) => {
-    if (confirm('Voulez-vous vraiment résilier ce contrat ? Le logement redeviendra vacant.')) {
-      terminateContract(id);
+  const handleTerminate = async (id: string) => {
+    if (!confirm('Voulez-vous vraiment résilier ce contrat ? Le logement redeviendra vacant.')) return;
+    try {
+      await terminateContract(id);
+    } catch (err) {
+      alert(parseApiError(err));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer définitivement ce contrat résilié ?')) return;
+    try {
+      await deleteContract(id);
+    } catch (err) {
+      alert(parseApiError(err));
     }
   };
 
@@ -183,11 +207,23 @@ export default function GerantContracts() {
                           </Badge>
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          {contract.estActif && (
-                            <Button variant="destructive" size="sm" onClick={() => handleTerminate(contract.id)}>
-                              Résilier
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {contract.estActif ? (
+                              <Button variant="destructive" size="sm" onClick={() => handleTerminate(contract.id)}>
+                                Résilier
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(contract.id)}
+                                className="gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Supprimer
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </motion.tr>
                     );
@@ -247,9 +283,20 @@ export default function GerantContracts() {
             <p className="text-lg font-black text-blue-800 mt-2">{formatCurrency(loyerTotal)} / mois</p>
           </div>
 
+          {formError && (
+            <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+              {formError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-            <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Annuler</Button>
-            <Button type="submit">Signer le contrat</Button>
+            <Button variant="outline" type="button" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="gap-2">
+              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Signer le contrat
+            </Button>
           </div>
         </form>
       </Modal>

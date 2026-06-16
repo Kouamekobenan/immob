@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Separator } from '@/components/ui/separator';
 import { FileText, Calendar, CreditCard, Printer, Building2, MapPin, Mail, Phone } from 'lucide-react';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+
+function formatMontant(v: number) {
+  return `${new Intl.NumberFormat('fr-FR').format(v)} FCFA`;
+}
 import type { Payment } from '@/types/prisma';
 import { motion } from 'framer-motion';
 
@@ -20,6 +24,8 @@ const stagger = {
 const payStatusConfig: Record<string, { label: string; cls: string }> = {
   PAYE:       { label: 'Payé',       cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  REJETE:     { label: 'Rejeté',     cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+  ECHOUE:     { label: 'Échoué',     cls: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 export default function LocataireContract() {
@@ -90,7 +96,7 @@ export default function LocataireContract() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Loyer mensuel</p>
-                      <p className="text-lg font-black text-blue-700">{formatCurrency(activeContract.loyerTotal)}</p>
+                      <p className="text-lg font-black text-blue-700">{formatMontant(activeContract.loyerTotal)}</p>
                     </div>
                   </div>
 
@@ -162,7 +168,7 @@ export default function LocataireContract() {
                               className="hover:bg-slate-50/60 transition-colors"
                             >
                               <td className="px-5 py-3.5 font-bold text-slate-800">{pay.periode}</td>
-                              <td className="px-5 py-3.5 font-semibold text-slate-700">{formatCurrency(pay.montant)}</td>
+                              <td className="px-5 py-3.5 font-semibold text-slate-700">{formatMontant(pay.montant)}</td>
                               <td className="px-5 py-3.5 text-slate-500">
                                 {pay.datePaiement ? formatDate(pay.datePaiement) : '—'}
                               </td>
@@ -224,16 +230,16 @@ export default function LocataireContract() {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Loyer de base</span>
-                    <span className="font-bold text-slate-700">{formatCurrency(prop.loyerDeBase)}</span>
+                    <span className="font-bold text-slate-700">{formatMontant(prop.loyerDeBase)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Charges</span>
-                    <span className="font-bold text-slate-700">{formatCurrency(prop.charges)}</span>
+                    <span className="font-bold text-slate-700">{formatMontant(prop.charges)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
                     <span className="font-bold text-slate-600">Total mensuel</span>
-                    <span className="font-black text-blue-700">{formatCurrency(prop.loyerDeBase + prop.charges)}</span>
+                    <span className="font-black text-blue-700">{formatMontant(prop.loyerDeBase + prop.charges)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -289,7 +295,7 @@ export default function LocataireContract() {
 
               {/* Body text */}
               <p className="text-xs leading-relaxed border-t border-b border-slate-100 py-4 italic font-serif">
-                Je soussigné, {receiptManager ? `${receiptManager.prenom} ${receiptManager.nom}` : '—'}, gérant mandataire du bien situé au {receiptProp?.adresse}, {receiptProp?.ville}, certifie avoir reçu de la part du locataire {receiptTenant?.prenom} {receiptTenant?.nom}, la somme de <strong className="font-semibold text-slate-900">{formatCurrency(activeReceipt.montant)}</strong> au titre du loyer et des charges pour la période de <strong className="font-semibold text-slate-900">{activeReceipt.periode}</strong>.
+                Je soussigné, {receiptManager ? `${receiptManager.prenom} ${receiptManager.nom}` : '—'}, gérant mandataire du bien situé au {receiptProp?.adresse}, {receiptProp?.ville}, certifie avoir reçu de la part du locataire {receiptTenant?.prenom} {receiptTenant?.nom}, la somme de <strong className="font-semibold text-slate-900">{formatMontant(activeReceipt.montant)}</strong> au titre du loyer et des charges pour la période de <strong className="font-semibold text-slate-900">{activeReceipt.periode}</strong>.
               </p>
 
               {/* Breakdown */}
@@ -306,12 +312,12 @@ export default function LocataireContract() {
                   ].map(row => (
                     <div key={row.label} className="flex p-2 border-b border-slate-100">
                       <span className="flex-1">{row.label}</span>
-                      <span className="w-24 text-right font-medium">{formatCurrency(row.value)}</span>
+                      <span className="w-24 text-right font-medium">{formatMontant(row.value)}</span>
                     </div>
                   ))}
                   <div className="flex p-2 font-extrabold text-slate-800">
                     <span className="flex-1 uppercase text-[10px]">Total Encaissé</span>
-                    <span className="w-24 text-right text-sm text-blue-800">{formatCurrency(activeReceipt.montant)}</span>
+                    <span className="w-24 text-right text-sm text-blue-800">{formatMontant(activeReceipt.montant)}</span>
                   </div>
                 </div>
               </div>

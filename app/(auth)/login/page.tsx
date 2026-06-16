@@ -5,195 +5,167 @@ import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/context/app-store-context';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { KeyRound, ShieldAlert, Building2, Users, Wrench, UserCheck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Building2, Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
+import { parseApiError } from '@/lib/api';
+
+function redirectByRole(role: string): string {
+  switch (role) {
+    case 'SUPER_ADMIN':  return '/dashboard/super-admin';
+    case 'BAILLEUR':     return '/dashboard/bailleur';
+    case 'GERANT':       return '/dashboard/gerant';
+    case 'LOCATAIRE':    return '/dashboard/locataire';
+    case 'PRESTATAIRE':  return '/dashboard/prestataire';
+    default:             return '/login';
+  }
+}
 
 export default function LoginPage() {
-  const { login, users, currentUser } = useAppStore();
+  const { login, currentUser, isAuthLoading } = useAppStore();
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
 
-  // If already logged in, redirect to the correct page
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd]   = useState(false);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
+
+  // If already authenticated, redirect immediately
   useEffect(() => {
-    if (currentUser) {
-      redirectByRole(currentUser.role);
+    if (!isAuthLoading && currentUser) {
+      router.push(redirectByRole(currentUser.role));
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthLoading, router]);
 
-  const redirectByRole = (role: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN':
-        router.push('/dashboard/super-admin');
-        break;
-      case 'BAILLEUR':
-        router.push('/dashboard/bailleur');
-        break;
-      case 'GERANT':
-        router.push('/dashboard/gerant');
-        break;
-      case 'LOCATAIRE':
-        router.push('/dashboard/locataire');
-        break;
-      case 'PRESTATAIRE':
-        router.push('/dashboard/prestataire');
-        break;
-      default:
-        router.push('/login');
-    }
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!email) {
-      setError('Veuillez entrer une adresse e-mail.');
+    if (!email || !password) {
+      setError('Veuillez remplir tous les champs.');
       return;
     }
-
-    const user = login(email);
-    if (user) {
-      redirectByRole(user.role);
-    } else {
-      setError('Utilisateur non trouvé. Utilisez un des e-mails prédéfinis ou cliquez sur un accès rapide ci-dessous.');
+    setLoading(true);
+    try {
+      const user = await login(email, password);
+      router.push(redirectByRole(user.role));
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleQuickLogin = (email: string) => {
-    const user = login(email);
-    if (user) {
-      redirectByRole(user.role);
-    }
-  };
-
-  // Assign icons for quick access display
-  const getIconForRole = (role: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN':
-        return <ShieldAlert className="h-5 w-5 text-red-600" />;
-      case 'BAILLEUR':
-        return <UserCheck className="h-5 w-5 text-indigo-600" />;
-      case 'GERANT':
-        return <Building2 className="h-5 w-5 text-blue-600" />;
-      case 'LOCATAIRE':
-        return <Users className="h-5 w-5 text-emerald-600" />;
-      case 'PRESTATAIRE':
-        return <Wrench className="h-5 w-5 text-amber-600" />;
-      default:
-        return <KeyRound className="h-5 w-5 text-slate-600" />;
-    }
-  };
-
-  const getDescriptionForRole = (role: string) => {
-    switch (role) {
-      case 'SUPER_ADMIN':
-        return 'Gère les comptes et supervise les logs d\'audit de la plateforme.';
-      case 'BAILLEUR':
-        return 'Propriétaire des biens. Visualise les indicateurs financiers et les gérants.';
-      case 'GERANT':
-        return 'Administre les biens, signe les contrats, encaisse les loyers et gère la maintenance.';
-      case 'LOCATAIRE':
-        return 'Consulte son contrat, règle ses loyers en ligne et signale les pannes.';
-      case 'PRESTATAIRE':
-        return 'Reçoit les ordres d\'intervention et déclare les pannes résolues.';
-      default:
-        return '';
-    }
-  };
+  // Show nothing while checking existing session
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen w-screen flex flex-col justify-center items-center bg-slate-50 p-4 sm:p-6 md:p-8 font-sans">
-      <div className="w-full max-w-4xl space-y-8 animate-in fade-in duration-300">
-        
-        {/* Logo and Header text */}
+    <div className="min-h-screen w-screen flex flex-col justify-center items-center bg-slate-50 p-4 font-sans">
+      <div className="w-full max-w-sm space-y-6 animate-in fade-in duration-300">
+
+        {/* Logo */}
         <div className="text-center">
-          <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-blue-500/20 mx-auto mb-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-blue-500/25 mx-auto mb-4">
             Im
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Immob Platform</h1>
-          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-            Plateforme unifiée de gestion immobilière pour bailleurs, gérants, locataires et prestataires.
+          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Immob Platform</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Connectez-vous à votre espace de gestion.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 items-start">
-          
-          {/* Left Column: Form login */}
-          <div className="md:col-span-2">
-            <Card className="shadow-lg border-slate-200 bg-white">
-              <CardHeader>
-                <CardTitle className="text-xl">Connexion Unifiée</CardTitle>
-                <CardDescription>Entrez votre e-mail pour accéder à votre espace.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleFormSubmit} className="space-y-4">
-                  <div>
-                    <label htmlFor="email" className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">
-                      Adresse E-mail
-                    </label>
-                    <input
-                      id="email"
-                      type="email"
-                      placeholder="ex: gerant@immob.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
-                    />
-                  </div>
+        {/* Form */}
+        <Card className="shadow-lg border-slate-200">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-blue-600" />
+              Connexion
+            </CardTitle>
+            <CardDescription>
+              Entrez vos identifiants pour accéder à la plateforme.
+            </CardDescription>
+          </CardHeader>
 
-                  {error && (
-                    <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 p-2.5 rounded-lg">
-                      {error}
-                    </p>
-                  )}
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Adresse e-mail</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="jean.dupont@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-9"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
 
-                  <Button type="submit" className="w-full justify-center">
-                    Connexion
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+              {/* Password */}
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Mot de passe</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="password"
+                    type={showPwd ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-9 pr-10"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
 
-          {/* Right Column: Demo Accounts Quick Access */}
-          <div className="md:col-span-3 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Accès de Démonstration (Simulateur)</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Sélectionnez un des comptes types configurés pour tester instantanément les interfaces et le flux de navigation.
+              {/* Error */}
+              {error && (
+                <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+                  {error}
+                </p>
+              )}
+
+              {/* Submit */}
+              <Button type="submit" className="w-full gap-2" disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? 'Connexion en cours...' : 'Se connecter'}
+              </Button>
+
+              {/* Forgot password link */}
+              <p className="text-center text-xs text-slate-500">
+                <a href="/forgot-password" className="text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                  Mot de passe oublié ?
+                </a>
               </p>
-            </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              {users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => handleQuickLogin(u.email)}
-                  className="flex items-center gap-4 p-3.5 rounded-xl border border-slate-200/80 bg-white hover:bg-blue-50/20 hover:border-blue-300 hover:shadow-sm text-left transition-all duration-200 group cursor-pointer"
-                >
-                  <div className="h-10 w-10 rounded-lg bg-slate-50 group-hover:bg-blue-50 border border-slate-100 flex items-center justify-center shrink-0">
-                    {getIconForRole(u.role)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-xs font-bold text-slate-800">
-                        {u.prenom} {u.nom}
-                      </h4>
-                      <span className="text-[9px] font-bold px-2 py-0.5 bg-slate-100 group-hover:bg-blue-100/50 text-slate-600 group-hover:text-blue-700 rounded-md border border-slate-200/30 uppercase tracking-wider shrink-0">
-                        {u.role.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{u.email}</p>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-normal font-normal">
-                      {getDescriptionForRole(u.role)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
+              <p className="text-center text-xs text-slate-500 pt-1 border-t border-slate-100">
+                Pas encore de compte ?{' '}
+                <a href="/register" className="text-blue-600 hover:text-blue-800 font-semibold transition-colors">
+                  Créer un compte
+                </a>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

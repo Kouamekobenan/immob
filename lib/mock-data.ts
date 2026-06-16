@@ -332,42 +332,5 @@ export const mockAuditLogs: AuditLog[] = [
   }
 ];
 
-// MOCK NOTIFICATIONS
-export const mockNotifications: Notification[] = [
-  {
-    id: 'notif-1',
-    titre: 'Loyer payé avec succès',
-    message: 'Votre paiement de 2800 € pour la période 05-2026 a été validé. La quittance est disponible.',
-    type: 'PAIEMENT_VALIDE',
-    estLu: true,
-    userId: 'user-locataire-1',
-    createdAt: '2026-05-02T10:15:00Z'
-  },
-  {
-    id: 'notif-2',
-    titre: 'Alerte : Loyer impayé',
-    message: 'Le loyer du mois de Juin 2026 est en attente de paiement depuis le 01/06.',
-    type: 'RAPPEL_IMPAYE',
-    estLu: false,
-    userId: 'user-locataire-2',
-    createdAt: '2026-06-02T07:00:00Z'
-  },
-  {
-    id: 'notif-3',
-    titre: 'Nouveau ticket de maintenance',
-    message: 'Le locataire Pierre Moreau a signalé une panne critique de chauffage.',
-    type: 'NOUVEAU_TICKET_ASSIGNE', // Notification d'alerte pour le gérant
-    estLu: false,
-    userId: 'user-gerant',
-    createdAt: '2026-06-03T18:21:00Z'
-  },
-  {
-    id: 'notif-4',
-    titre: 'Intervention assignée',
-    message: 'Une intervention sur la serrure de la Villa Duplex Chic vous a été attribuée.',
-    type: 'NOUVEAU_TICKET_ASSIGNE',
-    estLu: false,
-    userId: 'user-prestataire-2',
-    createdAt: '2026-06-02T11:00:00Z'
-  }
-];
+// MOCK NOTIFICATIONS — fallback vide, les notifications viennent de l'API
+export const mockNotifications: Notification[] = [];

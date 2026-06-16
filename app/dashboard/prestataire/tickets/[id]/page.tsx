@@ -5,8 +5,9 @@ import { useAppStore } from '@/context/app-store-context';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Wrench, CheckCircle, MapPin, User, Phone, Mail, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Wrench, CheckCircle, MapPin, User, Phone, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { parseApiError } from '@/lib/api';
 import Link from 'next/link';
 import { TicketStatus, UrgencyLevel } from '@/types/prisma';
 import { motion } from 'framer-motion';
@@ -34,6 +35,7 @@ export default function TicketDetailsPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const { tickets, properties, users, updateTicketStatus } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const ticket = tickets.find(t => t.id === id);
 
@@ -57,14 +59,28 @@ export default function TicketDetailsPage({ params }: { params: Promise<{ id: st
   const ugCfg  = urgencyConfig[ticket.urgence];
   const stCfg  = statusConfig[ticket.statut];
 
-  const handleStartWork = () => {
+  const handleStartWork = async () => {
     setLoading(true);
-    setTimeout(() => { updateTicketStatus(ticket.id, 'EN_COURS'); setLoading(false); }, 800);
+    setError('');
+    try {
+      await updateTicketStatus(ticket.id, 'EN_COURS');
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCompleteWork = () => {
+  const handleCompleteWork = async () => {
     setLoading(true);
-    setTimeout(() => { updateTicketStatus(ticket.id, 'RESOLU'); setLoading(false); }, 800);
+    setError('');
+    try {
+      await updateTicketStatus(ticket.id, 'RESOLU');
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -96,7 +112,7 @@ export default function TicketDetailsPage({ params }: { params: Promise<{ id: st
         <div className="shrink-0">
           {loading ? (
             <div className="flex items-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-xs text-slate-500">Mise à jour...</span>
             </div>
           ) : ticket.statut === 'ASSIGNE' ? (
@@ -122,6 +138,16 @@ export default function TicketDetailsPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </motion.div>
+
+      {/* Error banner */}
+      {error && (
+        <motion.div variants={stagger.item}>
+          <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-xs font-semibold text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            {error}
+          </div>
+        </motion.div>
+      )}
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
