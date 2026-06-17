@@ -1,15 +1,14 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, FormEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authService } from '@/lib/auth-service';
 import { parseApiError } from '@/lib/api';
-import { KeyRound, CheckCircle2, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Loader2, ArrowLeft, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
+import { AuthShell } from '@/components/shared/auth-shell';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -23,7 +22,7 @@ function ResetPasswordForm() {
   const [done, setDone]         = useState(false);
   const [error, setError]       = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     if (password.length < 8) {
@@ -46,118 +45,132 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex flex-col justify-center items-center bg-slate-50 p-4 font-sans">
-      <div className="w-full max-w-sm space-y-6 animate-in fade-in duration-300">
-
-        {/* Logo */}
-        <div className="text-center">
-          <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-blue-500/25 mx-auto mb-4">
-            Im
+    <AuthShell>
+      {done ? (
+        <div className="text-center space-y-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-emerald-50 border-2 border-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-900">Mot de passe mis à jour !</h1>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed max-w-xs mx-auto">
+                Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Immob Platform</h1>
-          <p className="text-sm text-slate-500 mt-1">Nouveau mot de passe</p>
-        </div>
-
-        <Card className="shadow-lg border-slate-200">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-slate-500" />
-              Réinitialiser le mot de passe
-            </CardTitle>
-            <CardDescription>
-              Choisissez un nouveau mot de passe sécurisé (minimum 8 caractères).
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            {done ? (
-              <div className="space-y-4">
-                <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="h-12 w-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Mot de passe mis à jour !</p>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
-                    </p>
-                  </div>
-                </div>
-                <Button className="w-full" onClick={() => router.push('/login')}>
-                  Se connecter
-                </Button>
-              </div>
-            ) : !token ? (
-              <div className="py-6 text-center space-y-4">
-                <p className="text-sm text-red-600 font-semibold bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
-                  Lien invalide ou expiré. Veuillez refaire une demande.
-                </p>
-                <Link href="/forgot-password">
-                  <Button variant="outline" className="w-full">Refaire une demande</Button>
-                </Link>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="password">Nouveau mot de passe</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPwd ? 'text' : 'password'}
-                      placeholder="Minimum 8 caractères"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="pr-10"
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwd(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-                    >
-                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirm">Confirmer le mot de passe</Label>
-                  <Input
-                    id="confirm"
-                    type="password"
-                    placeholder="Répétez votre mot de passe"
-                    value={confirm}
-                    onChange={e => setConfirm(e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
-
-                {error && (
-                  <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
-                    {error}
-                  </p>
-                )}
-
-                <Button type="submit" className="w-full gap-2" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {loading ? 'Mise à jour...' : 'Enregistrer le mot de passe'}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="text-center">
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium transition-colors"
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-500/20"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la connexion
+            Se connecter <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      ) : !token ? (
+        <div className="text-center space-y-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-red-50 border-2 border-red-100 flex items-center justify-center">
+              <ShieldCheck className="h-8 w-8 text-red-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-900">Lien invalide</h1>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed max-w-xs mx-auto">
+                Ce lien de réinitialisation est invalide ou a expiré.
+              </p>
+            </div>
+          </div>
+          <Link href="/forgot-password">
+            <button className="w-full h-11 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm rounded-xl transition-colors">
+              Refaire une demande
+            </button>
           </Link>
         </div>
-      </div>
-    </div>
+      ) : (
+        <>
+          <div className="mb-8">
+            <h1 className="text-[1.75rem] font-extrabold text-slate-900 tracking-tight leading-tight">
+              Nouveau mot de passe
+            </h1>
+            <p className="text-slate-500 text-sm mt-1.5">
+              Choisissez un mot de passe sécurisé d'au moins 8 caractères.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-sm font-medium text-slate-700">
+                Nouveau mot de passe
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPwd ? 'text' : 'password'}
+                  placeholder="Minimum 8 caractères"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="h-11 pr-11 text-sm bg-white border-slate-200"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm" className="text-sm font-medium text-slate-700">
+                Confirmer le mot de passe
+              </Label>
+              <Input
+                id="confirm"
+                type="password"
+                placeholder="Répétez votre mot de passe"
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+                className="h-11 text-sm bg-white border-slate-200"
+                disabled={loading}
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+                <div className="h-4 w-4 rounded-full bg-red-500 shrink-0 mt-0.5 flex items-center justify-center">
+                  <span className="text-white text-[9px] font-bold leading-none">!</span>
+                </div>
+                <p className="text-xs text-red-700 font-medium leading-snug">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-500/20"
+            >
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Mise à jour...</>
+              ) : (
+                <>Enregistrer le mot de passe<ArrowRight className="h-4 w-4" /></>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-7 text-center">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 font-medium transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour à la connexion
+            </Link>
+          </div>
+        </>
+      )}
+    </AuthShell>
   );
 }
 

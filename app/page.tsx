@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAppStore } from '@/context/app-store-context';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/context/app-store-context";
 
 export default function Home() {
   const { currentUser } = useAppStore();
@@ -10,26 +10,26 @@ export default function Home() {
 
   useEffect(() => {
     if (!currentUser) {
-      router.push('/login');
+      router.push("/login");
     } else {
       switch (currentUser.role) {
-        case 'SUPER_ADMIN':
-          router.push('/dashboard/super-admin');
+        case "SUPER_ADMIN":
+          router.push("/dashboard/stats");
           break;
-        case 'BAILLEUR':
-          router.push('/dashboard/bailleur');
+        case "BAILLEUR":
+          router.push("/dashboard/bailleur");
           break;
-        case 'GERANT':
-          router.push('/dashboard/gerant');
+        case "GERANT":
+          router.push("/dashboard/gerant");
           break;
-        case 'LOCATAIRE':
-          router.push('/dashboard/locataire');
+        case "LOCATAIRE":
+          router.push("/dashboard/locataire");
           break;
-        case 'PRESTATAIRE':
-          router.push('/dashboard/prestataire');
+        case "PRESTATAIRE":
+          router.push("/dashboard/prestataire");
           break;
         default:
-          router.push('/login');
+          router.push("/login");
       }
     }
   }, [currentUser, router]);
@@ -43,4 +43,3 @@ export default function Home() {
     </div>
   );
 }
-

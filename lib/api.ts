@@ -35,10 +35,8 @@ api.interceptors.response.use(
         },
       );
     }
-
     original._retry = true;
     isRefreshing = true;
-
     try {
       const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
       if (!refreshToken) throw new Error('No refresh token');

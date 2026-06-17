@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAppStore } from '@/context/app-store-context';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { parseApiError } from '@/lib/api';
+import { AuthShell } from '@/components/shared/auth-shell';
 
 function redirectByRole(role: string): string {
   switch (role) {
@@ -31,7 +31,6 @@ export default function LoginPage() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
 
-  // If already authenticated, redirect immediately
   useEffect(() => {
     if (!isAuthLoading && currentUser) {
       router.push(redirectByRole(currentUser.role));
@@ -55,7 +54,7 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-  // Show nothing while checking existing session
+
   if (isAuthLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
@@ -65,108 +64,105 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-screen flex flex-col justify-center items-center bg-slate-50 p-4 font-sans">
-      <div className="w-full max-w-sm space-y-6 animate-in fade-in duration-300">
+    <AuthShell>
+      <div className="mb-8">
+        <h1 className="text-[1.75rem] font-extrabold text-slate-900 tracking-tight leading-tight">
+          Bon retour !
+        </h1>
+        <p className="text-slate-500 text-sm mt-1.5">
+          Connectez-vous à votre espace de gestion.
+        </p>
+      </div>
 
-        {/* Logo */}
-        <div className="text-center">
-          <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-blue-500/25 mx-auto mb-4">
-            Im
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+            Adresse e-mail
+          </Label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="jean.dupont@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-11 pl-10 text-sm bg-white border-slate-200"
+              disabled={loading}
+            />
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Immob Platform</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Connectez-vous à votre espace de gestion.
-          </p>
         </div>
 
-        {/* Form */}
-        <Card className="shadow-lg border-slate-200">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-blue-600" />
-              Connexion
-            </CardTitle>
-            <CardDescription>
-              Entrez vos identifiants pour accéder à la plateforme.
-            </CardDescription>
-          </CardHeader>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-sm font-medium text-slate-700">
+              Mot de passe
+            </Label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+            >
+              Mot de passe oublié ?
+            </Link>
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              id="password"
+              type={showPwd ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-11 pl-10 pr-11 text-sm bg-white border-slate-200"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd(v => !v)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              tabIndex={-1}
+            >
+              {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
 
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Adresse e-mail</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="jean.dupont@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
+        {error && (
+          <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+            <div className="h-4 w-4 rounded-full bg-red-500 shrink-0 mt-0.5 flex items-center justify-center">
+              <span className="text-white text-[9px] font-bold leading-none">!</span>
+            </div>
+            <p className="text-xs text-red-700 font-medium leading-snug">{error}</p>
+          </div>
+        )}
 
-              {/* Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    id="password"
-                    type={showPwd ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9 pr-10"
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 mt-1"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connexion en cours...
+            </>
+          ) : (
+            <>
+              Se connecter
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </form>
 
-              {/* Error */}
-              {error && (
-                <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
-                  {error}
-                </p>
-              )}
-
-              {/* Submit */}
-              <Button type="submit" className="w-full gap-2" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {loading ? 'Connexion en cours...' : 'Se connecter'}
-              </Button>
-
-              {/* Forgot password link */}
-              <p className="text-center text-xs text-slate-500">
-                <a href="/forgot-password" className="text-blue-600 hover:text-blue-800 font-semibold transition-colors">
-                  Mot de passe oublié ?
-                </a>
-              </p>
-
-              <p className="text-center text-xs text-slate-500 pt-1 border-t border-slate-100">
-                Pas encore de compte ?{' '}
-                <a href="/register" className="text-blue-600 hover:text-blue-800 font-semibold transition-colors">
-                  Créer un compte
-                </a>
-              </p>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <p className="mt-7 text-center text-sm text-slate-500">
+        Pas encore de compte ?{' '}
+        <Link href="/register" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+          Créer un compte
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
