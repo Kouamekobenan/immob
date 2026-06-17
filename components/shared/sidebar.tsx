@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/context/app-store-context';
 import {
   LayoutDashboard, Users, ShieldAlert, Building2,
-  FileText, CreditCard, Wrench, LogOut, X, UserCircle, Wallet
+  FileText, CreditCard, Wrench, LogOut, X, UserCircle, Wallet, BarChart3
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       case 'SUPER_ADMIN':
         return [
           { label: "Vue d'ensemble", href: '/dashboard/super-admin', icon: LayoutDashboard },
+          { label: 'Analytiques', href: '/dashboard/stats', icon: BarChart3 },
           { label: 'Utilisateurs', href: '/dashboard/super-admin/users', icon: Users },
           { label: "Logs d'audit", href: '/dashboard/super-admin/audit-logs', icon: ShieldAlert },
           { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
@@ -50,6 +51,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       case 'BAILLEUR':
         return [
           { label: 'Hub Financier', href: '/dashboard/bailleur', icon: LayoutDashboard },
+          { label: 'Analytiques', href: '/dashboard/stats', icon: BarChart3 },
           { label: 'Mes Propriétés', href: '/dashboard/bailleur/properties', icon: Building2 },
           { label: 'Dépenses', href: '/dashboard/bailleur/expenses', icon: Wallet },
           { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
@@ -57,6 +59,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       case 'GERANT':
         return [
           { label: 'Centre Opérations', href: '/dashboard/gerant', icon: LayoutDashboard },
+          { label: 'Analytiques', href: '/dashboard/stats', icon: BarChart3 },
           { label: 'Gestion Biens', href: '/dashboard/gerant/properties', icon: Building2 },
           { label: 'Locataires', href: '/dashboard/gerant/locataires', icon: Users },
           { label: 'Contrats Locatifs', href: '/dashboard/gerant/contracts', icon: FileText },

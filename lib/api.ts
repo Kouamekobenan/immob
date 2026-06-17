@@ -6,7 +6,6 @@ export const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
-
 // Inject access token on every request
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
@@ -15,7 +14,6 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
-
 // Auto-refresh queue
 let isRefreshing = false;
 let queue: { resolve: (token: string) => void; reject: (err: unknown) => void }[] = [];
