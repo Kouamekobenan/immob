@@ -112,6 +112,7 @@ export interface Payment {
   datePaiement?: string | null;
   periode: string; // Ex: "06-2026"
   statut: PaymentStatus;
+  methodePaiement?: 'WAVE' | 'ORANGE_MONEY' | 'MTN' | 'VIREMENT' | 'ESPECES' | null;
   referenceId?: string | null;
   recuUrl?: string | null;
   contractId: string;
