@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import {
   Coins, Plus, Loader2, AlertCircle, ArrowRight, Building2,
-  Users2, Calendar, Info,
+  Users2, Info,
 } from 'lucide-react';
 import { parseApiError } from '@/lib/api';
 import { formatFCFA } from '@/lib/utils';
@@ -36,7 +36,7 @@ const groupeStatutConfig: Record<CotisationStatut, { label: string; cls: string 
 const createSchema = z.object({
   nom:              z.string().min(3, 'Nom requis (min 3 caractères)'),
   description:      z.string().optional(),
-  montantParMembre: z.coerce.number().positive('Montant requis et positif'),
+  montantParMembre: z.number().positive('Montant requis et positif'),
   propertyId:       z.string().optional(),
 });
 type CreateForm = z.infer<typeof createSchema>;
@@ -220,7 +220,7 @@ export default function CotisationsPage() {
               id="cg-montant"
               type="number" min="1"
               placeholder="5000"
-              {...createForm.register('montantParMembre')}
+              {...createForm.register('montantParMembre', { valueAsNumber: true })}
               disabled={isCreating}
               className={createForm.formState.errors.montantParMembre ? 'border-red-400' : ''}
             />

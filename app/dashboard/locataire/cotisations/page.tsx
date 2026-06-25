@@ -513,8 +513,7 @@ export default function LocataireCotisationsPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500">Groupe</span>
                 <span className="font-bold text-slate-800">
-                  {payerToutContrib.groupeNom
-                    ?? monGroupes.find(mg => mg.contributionCourante?.id === payerToutContrib.id)?.groupe.nom
+                  {monGroupes.find(mg => mg.contributionCourante?.id === payerToutContrib.id)?.groupe.nom
                     ?? monGroupes.find(mg => mg.groupe.id === payerToutContrib.groupeId)?.groupe.nom
                     ?? '—'}
                 </span>
