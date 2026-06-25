@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import {
   Coins, Loader2, AlertCircle, ChevronDown, Banknote,
-  CheckCircle, Clock, TrendingUp, RefreshCw, Info,
+  CheckCircle, XCircle, Clock, TrendingUp, RefreshCw, Info,
 } from 'lucide-react';
 import { parseApiError } from '@/lib/api';
 import { formatFCFA } from '@/lib/utils';
@@ -37,10 +37,10 @@ function formatPeriode(p: string): string {
 }
 
 const statutCfg: Record<PaymentStatus, { label: string; cls: string; dot: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400' },
-  PARTIEL:    { label: 'Partiel',    cls: 'bg-amber-50  text-amber-700  border-amber-200',  dot: 'bg-amber-400' },
+  EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50  text-amber-700  border-amber-200',   dot: 'bg-amber-400'   },
+  PARTIEL:    { label: 'Partiel',    cls: 'bg-blue-50   text-blue-700   border-blue-200',    dot: 'bg-blue-400'    },
   PAYE:       { label: 'Soldé ✓',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  REJETE:     { label: 'Rejeté',    cls: 'bg-red-50  text-red-700  border-red-200',         dot: 'bg-red-400' },
+  REJETE:     { label: 'Rejeté',    cls: 'bg-red-50    text-red-700    border-red-200',      dot: 'bg-red-400'     },
 };
 
 // ── Zod Schemas ───────────────────────────────────────────────────────────────
@@ -90,8 +90,8 @@ export default function LocataireCotisationsPage() {
     setPageError('');
     try {
       const [groupes, bilanData] = await Promise.all([
-        cotisationsService.getMonGroupes(),
-        cotisationsService.getMonBilan(selectedPeriode !== cotisationsService.getCurrentPeriode() ? selectedPeriode : undefined),
+        cotisationsService.getMonGroupes(selectedPeriode),
+        cotisationsService.getMonBilan(selectedPeriode),
       ]);
       setMonGroupes(groupes);
       setBilan(bilanData);
@@ -105,10 +105,9 @@ export default function LocataireCotisationsPage() {
   // Inline async effect — setState only inside .then()/.catch() (asynchronous, not flagged)
   useEffect(() => {
     let cancelled = false;
-    const periodeArg = selectedPeriode !== cotisationsService.getCurrentPeriode() ? selectedPeriode : undefined;
     Promise.all([
-      cotisationsService.getMonGroupes(),
-      cotisationsService.getMonBilan(periodeArg),
+      cotisationsService.getMonGroupes(selectedPeriode),
+      cotisationsService.getMonBilan(selectedPeriode),
     ]).then(([groupes, bilanData]) => {
       if (!cancelled) { setMonGroupes(groupes); setBilan(bilanData); setLoading(false); }
     }).catch(err => {
@@ -408,6 +407,17 @@ export default function LocataireCotisationsPage() {
                           Cotisation soldée
                         </div>
                       )}
+                      {ecc?.statut === 'REJETE' && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 justify-center text-red-600 text-xs font-semibold py-1">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Paiement rejeté
+                          </div>
+                          {ecc.motifRejet && (
+                            <p className="text-[10px] text-red-500 text-center leading-snug">{ecc.motifRejet}</p>
+                          )}
+                        </div>
+                      )}
                     </Card>
                   </motion.div>
                 );
@@ -444,12 +454,17 @@ export default function LocataireCotisationsPage() {
                           <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
                             <td className="px-5 py-3.5">
                               <p className="font-semibold text-slate-800">
-                                {monGroupes.find(mg => mg.groupe.id === c.groupeId)?.groupe.nom ?? c.nom ?? '—'}
+                                {c.groupeNom ?? monGroupes.find(mg => mg.groupe.id === c.groupeId)?.groupe.nom ?? '—'}
                               </p>
                             </td>
                             <td className="px-5 py-3.5 text-slate-600">{formatPeriode(c.periode)}</td>
                             <td className="px-5 py-3.5">
                               <Badge className={`text-[9px] font-bold border ${scfg.cls}`}>{scfg.label}</Badge>
+                              {c.statut === 'REJETE' && c.motifRejet && (
+                                <p className="text-[10px] text-red-500 mt-0.5 max-w-[180px] truncate" title={c.motifRejet}>
+                                  {c.motifRejet}
+                                </p>
+                              )}
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="font-bold text-slate-800">{formatFCFA(c.montantPaye)}</span>
@@ -513,7 +528,8 @@ export default function LocataireCotisationsPage() {
               <div className="flex justify-between">
                 <span className="text-slate-500">Groupe</span>
                 <span className="font-bold text-slate-800">
-                  {monGroupes.find(mg => mg.contributionCourante?.id === payerToutContrib.id)?.groupe.nom
+                  {payerToutContrib.groupeNom
+                    ?? monGroupes.find(mg => mg.contributionCourante?.id === payerToutContrib.id)?.groupe.nom
                     ?? monGroupes.find(mg => mg.groupe.id === payerToutContrib.groupeId)?.groupe.nom
                     ?? '—'}
                 </span>

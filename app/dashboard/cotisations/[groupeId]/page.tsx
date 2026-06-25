@@ -15,7 +15,7 @@ import { Modal } from '@/components/ui/modal';
 import {
   Coins, Plus, Loader2, AlertCircle, ArrowLeft, Edit2,
   Crown, UserX, CheckCircle, XCircle, Clock, Info,
-  RefreshCw, ChevronDown, ListOrdered, Banknote,
+  RefreshCw, ChevronDown, ListOrdered, Banknote, TrendingUp,
 } from 'lucide-react';
 import { parseApiError } from '@/lib/api';
 import { formatFCFA, formatDate } from '@/lib/utils';
@@ -24,12 +24,12 @@ import { userService } from '@/lib/services/user.service';
 import type { User } from '@/types/prisma';
 import type {
   GroupeResponse, MembreResponse, ContributionResponse,
-  TranchePaiementResponse, GroupeSummaryResponse,
+  TranchePaiementResponse, GroupeSummaryResponse, HistoriquePeriodeResponse,
   CotisationStatut, PaymentStatus,
 } from '@/types/cotisations';
 import { motion } from 'framer-motion';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const stagger = {
   container: { hidden: {}, show: { transition: { staggerChildren: 0.04 } } },
@@ -37,7 +37,6 @@ const stagger = {
 };
 
 const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
 function formatPeriode(p: string): string {
   const [mm, yyyy] = p.split('-');
   return `${MOIS[parseInt(mm) - 1]} ${yyyy}`;
@@ -50,10 +49,10 @@ const groupeStatutCfg: Record<CotisationStatut, { label: string; cls: string }> 
 };
 
 const contribStatutCfg: Record<PaymentStatus, { label: string; cls: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
-  PARTIEL:    { label: 'Partiel',    cls: 'bg-amber-50  text-amber-700  border-amber-200' },
+  EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50  text-amber-700  border-amber-200'   },
+  PARTIEL:    { label: 'Partiel',    cls: 'bg-blue-50   text-blue-700   border-blue-200'    },
   PAYE:       { label: 'Soldé ✓',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  REJETE:     { label: 'Rejeté',    cls: 'bg-red-50  text-red-700  border-red-200' },
+  REJETE:     { label: 'Rejeté',    cls: 'bg-red-50    text-red-700    border-red-200'      },
 };
 
 // ── Zod Schemas ───────────────────────────────────────────────────────────────
@@ -84,6 +83,11 @@ const confirmSchema = z.object({
 });
 type ConfirmForm = z.infer<typeof confirmSchema>;
 
+const rejectSchema = z.object({
+  motif: z.string().max(500, '500 caractères maximum').optional(),
+});
+type RejectForm = z.infer<typeof rejectSchema>;
+
 // ── Page Component ────────────────────────────────────────────────────────────
 
 export default function GroupeDetailPage() {
@@ -96,21 +100,24 @@ export default function GroupeDetailPage() {
   const [pageUsers, setPageUsers] = useState<User[]>([]);
 
   // ── Data states ──
-  const [groupe,          setGroupe]         = useState<GroupeResponse | null>(null);
-  const [membres,         setMembres]        = useState<MembreResponse[]>([]);
-  const [summary,         setSummary]        = useState<GroupeSummaryResponse | null>(null);
+  const [groupe,          setGroupe]          = useState<GroupeResponse | null>(null);
+  const [membres,         setMembres]         = useState<MembreResponse[]>([]);
+  const [summary,         setSummary]         = useState<GroupeSummaryResponse | null>(null);
   const [selectedPeriode, setSelectedPeriode] = useState(cotisationsService.getCurrentPeriode());
-  const [loading,         setLoading]        = useState(true);
-  const [pageError,       setPageError]      = useState('');
-  const [tranches,        setTranches]       = useState<TranchePaiementResponse[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [pageError,       setPageError]       = useState('');
+  const [tranches,        setTranches]        = useState<TranchePaiementResponse[]>([]);
   const [tranchesLoading, setTranchesLoading] = useState(false);
+  const [historique,      setHistorique]      = useState<HistoriquePeriodeResponse[]>([]);
+  const [historiqueLoading, setHistoriqueLoading] = useState(false);
 
-  // ── Modal open states ──
-  const [isEditOpen,          setIsEditOpen]          = useState(false);
-  const [isAddMembreOpen,     setIsAddMembreOpen]     = useState(false);
-  const [addingTranche,       setAddingTranche]       = useState<ContributionResponse | null>(null);
-  const [viewingTranches,     setViewingTranches]     = useState<ContributionResponse | null>(null);
-  const [confirmingContrib,   setConfirmingContrib]   = useState<ContributionResponse | null>(null);
+  // ── Modal states ──
+  const [isEditOpen,        setIsEditOpen]        = useState(false);
+  const [isAddMembreOpen,   setIsAddMembreOpen]   = useState(false);
+  const [addingTranche,     setAddingTranche]     = useState<ContributionResponse | null>(null);
+  const [viewingTranches,   setViewingTranches]   = useState<ContributionResponse | null>(null);
+  const [confirmingContrib, setConfirmingContrib] = useState<ContributionResponse | null>(null);
+  const [rejectingContrib,  setRejectingContrib]  = useState<ContributionResponse | null>(null);
 
   // ── Action loading states ──
   const [isEditing,              setIsEditing]              = useState(false);
@@ -125,23 +132,24 @@ export default function GroupeDetailPage() {
   const [generateError,          setGenerateError]          = useState('');
   const [removingMembreId,       setRemovingMembreId]       = useState<string | null>(null);
   const [settingTresorierMembre, setSettingTresorierMembre] = useState<string | null>(null);
-  const [rejectingContribId,     setRejectingContribId]     = useState<string | null>(null);
+  const [isRejecting,            setIsRejecting]            = useState(false);
+  const [rejectError,            setRejectError]            = useState('');
   const [membresError,           setMembresError]           = useState('');
 
   // ── Forms ──
-  const editForm       = useForm<EditForm>({ resolver: zodResolver(editSchema) });
-  const addMembreForm  = useForm<AddMembreForm>({ resolver: zodResolver(addMembreSchema) });
-  const trancheForm    = useForm<TrancheForm>({ resolver: zodResolver(trancheSchema) });
-  const confirmForm    = useForm<ConfirmForm>({ resolver: zodResolver(confirmSchema) });
+  const editForm      = useForm<EditForm>({ resolver: zodResolver(editSchema) });
+  const addMembreForm = useForm<AddMembreForm>({ resolver: zodResolver(addMembreSchema) });
+  const trancheForm   = useForm<TrancheForm>({ resolver: zodResolver(trancheSchema) });
+  const confirmForm   = useForm<ConfirmForm>({ resolver: zodResolver(confirmSchema) });
+  const rejectForm    = useForm<RejectForm>({ resolver: zodResolver(rejectSchema) });
 
-  // ── Load data ──────────────────────────────────────────────────────────────
+  // ── Load data ─────────────────────────────────────────────────────────────
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setPageError('');
     setMembresError('');
     try {
-      // Fetch membres séparément pour capturer l'erreur sans bloquer le reste
       let m: MembreResponse[] = [];
       try {
         m = await cotisationsService.getGroupeMembres(groupeId);
@@ -157,17 +165,12 @@ export default function GroupeDetailPage() {
       setMembres(m);
       setSummary(s);
 
-      // Partir du store (déjà chargé au login) pour éviter un appel /users redondant
-      const baseUsers = storeUsersRef.current;
-      const knownIds  = new Set(baseUsers.map(u => u.id));
-      const missingIds = m
-        .map(mb => mb.locataireId)
-        .filter(id => !knownIds.has(id));
-
+      // Resolve users not in store (for the "add member" select only)
+      const baseUsers  = storeUsersRef.current;
+      const knownIds   = new Set(baseUsers.map(u => u.id));
+      const missingIds = m.map(mb => mb.locataireId).filter(id => !knownIds.has(id));
       if (missingIds.length > 0) {
-        const extra = await Promise.all(
-          missingIds.map(id => userService.getById(id).catch(() => null))
-        );
+        const extra = await Promise.all(missingIds.map(id => userService.getById(id).catch(() => null)));
         setPageUsers([...baseUsers, ...extra.filter((u): u is User => u !== null)]);
       } else {
         setPageUsers(baseUsers);
@@ -179,34 +182,32 @@ export default function GroupeDetailPage() {
     }
   }, [groupeId, selectedPeriode]);
 
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Quand le store finit de charger les utilisateurs depuis l'API, on les fusionne dans pageUsers
+  // Historique: period-independent, loaded once per groupe
+  useEffect(() => {
+    setHistoriqueLoading(true);
+    cotisationsService.getGroupeHistorique(groupeId)
+      .then(setHistorique)
+      .catch(() => {})
+      .finally(() => setHistoriqueLoading(false));
+  }, [groupeId]);
+
+  // Merge store users when they finish loading
   useEffect(() => {
     setPageUsers(prev => {
       const storeIds = new Set(storeUsers.map(u => u.id));
-      const extras   = prev.filter(u => !storeIds.has(u.id)); // users fetch individuels gardés
+      const extras   = prev.filter(u => !storeIds.has(u.id));
       return [...storeUsers, ...extras];
     });
   }, [storeUsers]);
 
-  // ── Derived data ──────────────────────────────────────────────────────────
+  // ── Derived data ─────────────────────────────────────────────────────────
 
-  const getLocataireForMembre = (m: MembreResponse) =>
-    pageUsers.find((u: User) => u.id === m.locataireId);
-
-  const getLocataireForContrib = (c: ContributionResponse) => {
-    const membre = membres.find(m => m.id === c.membreId);
-    if (!membre) return null;
-    return pageUsers.find((u: User) => u.id === membre.locataireId) ?? null;
-  };
-
-  const membreLocataireIds = membres.map(m => m.locataireId);
-  // Si GET /membres a échoué, on montre tous les locataires (le backend rejettera les doublons avec 409)
-  const availableLocataires = pageUsers
-    .filter((u: User) => u.role === 'LOCATAIRE' && (membresError ? true : !membreLocataireIds.includes(u.id)));
+  const membreLocataireIds  = membres.map(m => m.locataireId);
+  const availableLocataires = pageUsers.filter(
+    (u: User) => u.role === 'LOCATAIRE' && (membresError ? true : !membreLocataireIds.includes(u.id))
+  );
 
   const periodes = cotisationsService.generatePeriodes(14);
 
@@ -214,15 +215,13 @@ export default function GroupeDetailPage() {
     ? Math.round((summary.totalCollecte / summary.totalAttendu) * 100)
     : 0;
 
-  const progressColor = collectePercent >= 80
-    ? 'bg-emerald-500'
-    : collectePercent >= 50
-    ? 'bg-amber-400'
+  const progressColor = collectePercent >= 80 ? 'bg-emerald-500'
+    : collectePercent >= 50 ? 'bg-amber-400'
     : 'bg-red-400';
 
-  const canGenerer = groupe && groupe.statut === 'ACTIF';
+  const canGenerer = groupe?.statut === 'ACTIF';
 
-  // ── Action handlers ───────────────────────────────────────────────────────
+  // ── Action handlers ──────────────────────────────────────────────────────
 
   const handleOpenEdit = () => {
     if (!groupe) return;
@@ -288,16 +287,28 @@ export default function GroupeDetailPage() {
     finally { setSettingTresorierMembre(null); }
   };
 
-  const handleRejectContrib = async (c: ContributionResponse) => {
-    setRejectingContribId(c.id);
+  const handleOpenReject = (c: ContributionResponse) => {
+    rejectForm.reset();
+    setRejectError('');
+    setRejectingContrib(c);
+  };
+
+  const onRejectSubmit = async (data: RejectForm) => {
+    if (!rejectingContrib) return;
+    setRejectError('');
+    setIsRejecting(true);
     try {
-      const updated = await cotisationsService.rejectContribution(c.id);
+      const updated = await cotisationsService.rejectContribution(rejectingContrib.id, data.motif || undefined);
       setSummary(prev => prev ? {
         ...prev,
-        contributions: prev.contributions.map(contrib => contrib.id === updated.id ? { ...contrib, ...updated } : contrib),
+        contributions: prev.contributions.map(c => c.id === updated.id ? { ...c, ...updated } : c),
       } : prev);
-    } catch { /* noop */ }
-    finally { setRejectingContribId(null); }
+      setRejectingContrib(null);
+    } catch (err) {
+      setRejectError(parseApiError(err));
+    } finally {
+      setIsRejecting(false);
+    }
   };
 
   const handleGenerer = async () => {
@@ -305,10 +316,19 @@ export default function GroupeDetailPage() {
     setIsGenerating(true);
     try {
       await cotisationsService.genererContributions(groupeId, selectedPeriode);
-      const newSummary = await cotisationsService.getGroupeSummary(groupeId, selectedPeriode);
+      const [newSummary] = await Promise.all([
+        cotisationsService.getGroupeSummary(groupeId, selectedPeriode),
+        cotisationsService.getGroupeHistorique(groupeId).then(setHistorique).catch(() => {}),
+      ]);
       setSummary(newSummary);
-    } catch (err) {
-      setGenerateError(parseApiError(err));
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setGenerateError('Les contributions ont déjà été générées pour cette période.');
+        cotisationsService.getGroupeSummary(groupeId, selectedPeriode).then(setSummary).catch(() => null);
+      } else {
+        setGenerateError(parseApiError(err));
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -339,12 +359,10 @@ export default function GroupeDetailPage() {
         contributions: prev.contributions.map(c =>
           c.id === result.contribution.id ? { ...c, ...result.contribution } : c
         ),
-        totalCollecte:   prev.totalCollecte   + result.tranche.montant,
-        totalEnAttente:  prev.totalEnAttente  - result.tranche.montant,
-        nombreMembresPayes: result.contribution.statut === 'PAYE'
-          ? prev.nombreMembresPayes + 1 : prev.nombreMembresPayes,
-        nombreMembresEnAttente: result.contribution.statut === 'PAYE'
-          ? prev.nombreMembresEnAttente - 1 : prev.nombreMembresEnAttente,
+        totalCollecte:          prev.totalCollecte   + result.tranche.montant,
+        totalEnAttente:         prev.totalEnAttente  - result.tranche.montant,
+        nombreMembresPayes:     result.contribution.statut === 'PAYE' ? prev.nombreMembresPayes + 1 : prev.nombreMembresPayes,
+        nombreMembresEnAttente: result.contribution.statut === 'PAYE' ? prev.nombreMembresEnAttente - 1 : prev.nombreMembresEnAttente,
       } : prev);
       setAddingTranche(null);
     } catch (err) {
@@ -359,8 +377,7 @@ export default function GroupeDetailPage() {
     setTranches([]);
     setTranchesLoading(true);
     try {
-      const t = await cotisationsService.getTranches(c.id);
-      setTranches(t);
+      setTranches(await cotisationsService.getTranches(c.id));
     } catch { setTranches([]); }
     finally { setTranchesLoading(false); }
   };
@@ -382,7 +399,7 @@ export default function GroupeDetailPage() {
       });
       setSummary(prev => prev ? {
         ...prev,
-        contributions: prev.contributions.map(c => c.id === updated.id ? { ...c, ...updated } : c),
+        contributions:          prev.contributions.map(c => c.id === updated.id ? { ...c, ...updated } : c),
         totalCollecte:          prev.totalCollecte + confirmingContrib.montantRestant,
         totalEnAttente:         prev.totalEnAttente - confirmingContrib.montantRestant,
         nombreMembresPayes:     prev.nombreMembresPayes + 1,
@@ -398,34 +415,30 @@ export default function GroupeDetailPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex justify-center items-center py-24">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+    </div>
+  );
 
-  if (pageError || !groupe) {
-    return (
-      <div className="flex flex-col items-center py-20 gap-4">
-        <AlertCircle className="h-10 w-10 text-red-400" />
-        <p className="text-sm text-red-600 font-medium">{pageError || 'Groupe introuvable'}</p>
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />Retour
-        </Button>
-      </div>
-    );
-  }
+  if (pageError || !groupe) return (
+    <div className="flex flex-col items-center py-20 gap-4">
+      <AlertCircle className="h-10 w-10 text-red-400" />
+      <p className="text-sm text-red-600 font-medium">{pageError || 'Groupe introuvable'}</p>
+      <Button variant="outline" onClick={() => router.back()}>
+        <ArrowLeft className="h-4 w-4 mr-1.5" />Retour
+      </Button>
+    </div>
+  );
 
-  const stCfg = groupeStatutCfg[groupe.statut];
-  const prop  = properties.find(p => p.id === groupe.propertyId);
+  const stCfg        = groupeStatutCfg[groupe.statut];
+  const prop         = properties.find(p => p.id === groupe.propertyId);
   const contributions = summary?.contributions ?? [];
 
   return (
     <motion.div variants={stagger.container} initial="hidden" animate="show" className="space-y-6">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <motion.div variants={stagger.item}>
         <button
           onClick={() => router.push('/dashboard/cotisations')}
@@ -434,7 +447,6 @@ export default function GroupeDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Retour aux groupes
         </button>
-
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="h-11 w-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
@@ -450,9 +462,7 @@ export default function GroupeDetailPage() {
                 {' '}par membre / mois
                 {prop && <> · <span className="text-slate-400">{prop.titre}</span></>}
               </p>
-              {groupe.description && (
-                <p className="text-xs text-slate-400 mt-1">{groupe.description}</p>
-              )}
+              {groupe.description && <p className="text-xs text-slate-400 mt-1">{groupe.description}</p>}
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleOpenEdit} className="self-start shrink-0 gap-1.5">
@@ -470,14 +480,13 @@ export default function GroupeDetailPage() {
           <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
             Résumé — {formatPeriode(selectedPeriode)}
           </h2>
-
           {summary ? (
             <>
               <div className="grid grid-cols-3 gap-3 text-center">
                 {([
-                  { label: 'Attendu',    value: summary.totalAttendu,   cls: 'text-slate-700' },
-                  { label: 'Collecté',   value: summary.totalCollecte,  cls: 'text-emerald-600' },
-                  { label: 'Restant',    value: summary.totalEnAttente, cls: 'text-amber-600' },
+                  { label: 'Attendu',  value: summary.totalAttendu,   cls: 'text-slate-700' },
+                  { label: 'Collecté', value: summary.totalCollecte,  cls: 'text-emerald-600' },
+                  { label: 'Restant',  value: summary.totalEnAttente, cls: 'text-amber-600' },
                 ] as const).map(({ label, value, cls }) => (
                   <div key={label} className="bg-slate-50 rounded-xl p-3">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{label}</p>
@@ -485,8 +494,6 @@ export default function GroupeDetailPage() {
                   </div>
                 ))}
               </div>
-
-              {/* Progress bar */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs text-slate-500 font-medium">Taux de collecte</span>
@@ -509,9 +516,7 @@ export default function GroupeDetailPage() {
               </div>
             </>
           ) : (
-            <p className="text-sm text-slate-400 text-center py-4">
-              Aucun résumé disponible pour cette période.
-            </p>
+            <p className="text-sm text-slate-400 text-center py-4">Aucun résumé disponible pour cette période.</p>
           )}
         </Card>
 
@@ -527,32 +532,29 @@ export default function GroupeDetailPage() {
             <div className="flex items-start gap-2 mb-3 p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
               <span>Impossible de charger les membres : {membresError}</span>
-              <button onClick={loadAll} className="ml-auto text-amber-600 hover:text-amber-800 underline shrink-0">
-                Réessayer
-              </button>
+              <button onClick={loadAll} className="ml-auto text-amber-600 hover:text-amber-800 underline shrink-0">Réessayer</button>
             </div>
           )}
 
           <div className="flex-1 space-y-2 min-h-0">
             {!membresError && membres.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">
-                Aucun membre dans ce groupe.
-              </p>
+              <p className="text-sm text-slate-400 text-center py-6">Aucun membre dans ce groupe.</p>
             ) : (
               membres.map(m => {
-                const loc = getLocataireForMembre(m);
-                const isRemoving   = removingMembreId       === m.id;
-                const isSetTresor  = settingTresorierMembre === m.id;
+                const initials    = `${m.prenom?.[0] ?? '?'}${m.nom?.[0] ?? ''}`;
+                const displayName = (m.prenom || m.nom)
+                  ? `${m.prenom ?? ''} ${m.nom ?? ''}`.trim()
+                  : m.locataireId.slice(0, 8) + '…';
+                const isRemoving  = removingMembreId       === m.id;
+                const isSetTresor = settingTresorierMembre === m.id;
                 return (
                   <div key={m.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold shrink-0">
-                        {loc?.prenom?.[0] ?? '?'}{loc?.nom?.[0] ?? ''}
+                        {initials}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">
-                          {loc ? `${loc.prenom} ${loc.nom}` : m.locataireId.slice(0, 8) + '…'}
-                        </p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
                         {m.estTresorier && (
                           <div className="flex items-center gap-1 mt-0.5">
                             <Crown className="h-3 w-3 text-amber-500" />
@@ -569,9 +571,7 @@ export default function GroupeDetailPage() {
                           onClick={() => handleSetTresorier(m.id)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors disabled:opacity-40"
                         >
-                          {isSetTresor
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <Crown className="h-3.5 w-3.5" />}
+                          {isSetTresor ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
                         </button>
                       )}
                       <button
@@ -580,9 +580,7 @@ export default function GroupeDetailPage() {
                         onClick={() => !m.estTresorier && handleRemoveMembre(m.id)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       >
-                        {isRemoving
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <UserX className="h-3.5 w-3.5" />}
+                        {isRemoving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserX className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -612,46 +610,39 @@ export default function GroupeDetailPage() {
               <p className="text-xs text-slate-400 mt-0.5">Cliquez sur une ligne pour voir l&apos;historique des tranches.</p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Period selector */}
               <div className="relative">
                 <select
                   value={selectedPeriode}
                   onChange={e => setSelectedPeriode(e.target.value)}
                   className="pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-semibold text-slate-700 appearance-none cursor-pointer"
                 >
-                  {periodes.map(p => (
-                    <option key={p} value={p}>{formatPeriode(p)}</option>
-                  ))}
+                  {periodes.map(p => <option key={p} value={p}>{formatPeriode(p)}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               </div>
-
-              {/* Generate button */}
               <Button
-                size="sm"
-                onClick={handleGenerer}
+                size="sm" onClick={handleGenerer}
                 disabled={!canGenerer || isGenerating}
                 className="gap-1.5"
                 title={!canGenerer ? 'Le groupe doit être actif' : ''}
               >
-                {isGenerating
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <RefreshCw className="h-3.5 w-3.5" />}
+                {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 Générer les avis
               </Button>
             </div>
           </div>
 
-          {/* Generate error */}
+          {/* Generate message (info for 409, error otherwise) */}
           {generateError && (
-            <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-              <p className="text-xs text-red-700 font-medium">{generateError}</p>
-              <button onClick={() => setGenerateError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <div className="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+              <Info className="h-4 w-4 text-amber-500 shrink-0" />
+              <p className="text-xs text-amber-800 font-medium">{generateError}</p>
+              <button onClick={() => setGenerateError('')} className="ml-auto text-amber-400 hover:text-amber-600">
                 <XCircle className="h-4 w-4" />
               </button>
             </div>
           )}
+
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -675,10 +666,10 @@ export default function GroupeDetailPage() {
                     </td>
                   </tr>
                 ) : contributions.map((c, i) => {
-                  const loc    = getLocataireForContrib(c);
-                  const stCfg  = contribStatutCfg[c.statut];
+                  const scfg        = contribStatutCfg[c.statut];
                   const hasTranches = c.statut === 'PARTIEL' || c.statut === 'PAYE';
-                  const progPct = c.montant > 0 ? Math.round((c.montantPaye / c.montant) * 100) : 0;
+                  const progPct     = c.montant > 0 ? Math.round((c.montantPaye / c.montant) * 100) : 0;
+                  const isActionable = c.statut === 'EN_ATTENTE' || c.statut === 'PARTIEL';
                   return (
                     <motion.tr
                       key={c.id}
@@ -690,15 +681,19 @@ export default function GroupeDetailPage() {
                     >
                       <td className="px-5 py-3.5">
                         <p className="font-bold text-slate-800">
-                          {c.membrePrenom} {c.membreNom}
-                          {/* {loc ? `${loc.prenom} ${loc.nom}` : `${c.membreId.slice(0, 8) + '…'}`} */}
+                          {[c.membrePrenom, c.membreNom].filter(Boolean).join(' ') || '—'}
                         </p>
                         {c.referenceId && (
                           <p className="text-[10px] font-mono text-slate-400">{c.referenceId}</p>
                         )}
                       </td>
                       <td className="px-5 py-3.5">
-                        <Badge className={`text-[9px] font-bold border ${stCfg.cls}`}>{stCfg.label}</Badge>
+                        <Badge className={`text-[9px] font-bold border ${scfg.cls}`}>{scfg.label}</Badge>
+                        {c.statut === 'REJETE' && c.motifRejet && (
+                          <p className="text-[10px] text-red-500 mt-0.5 max-w-[160px] truncate" title={c.motifRejet}>
+                            {c.motifRejet}
+                          </p>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
@@ -715,7 +710,7 @@ export default function GroupeDetailPage() {
                       </td>
                       <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
-                          {(c.statut === 'EN_ATTENTE' || c.statut === 'PARTIEL') && (
+                          {isActionable && (
                             <Button
                               size="sm" variant="outline"
                               onClick={() => handleOpenTranche(c)}
@@ -725,7 +720,7 @@ export default function GroupeDetailPage() {
                               +Tranche
                             </Button>
                           )}
-                          {c.statut === 'EN_ATTENTE' && (
+                          {isActionable && (
                             <Button
                               size="sm"
                               onClick={() => handleOpenConfirmContrib(c)}
@@ -735,21 +730,18 @@ export default function GroupeDetailPage() {
                               Confirmer
                             </Button>
                           )}
-                          {(c.statut === 'EN_ATTENTE' || c.statut === 'PARTIEL') && (
+                          {isActionable && (
                             <button
                               title="Rejeter la contribution"
-                              disabled={rejectingContribId === c.id}
-                              onClick={() => handleRejectContrib(c)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                              onClick={() => handleOpenReject(c)}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             >
-                              {rejectingContribId === c.id
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : <XCircle className="h-3.5 w-3.5" />}
+                              <XCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {hasTranches && (
                             <button
-                              title="Voir l'historique"
+                              title="Voir l'historique des tranches"
                               onClick={() => handleViewTranches(c)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
@@ -767,6 +759,80 @@ export default function GroupeDetailPage() {
         </Card>
       </motion.div>
 
+      {/* ── Historique des périodes ────────────────────────────────────────── */}
+      <motion.div variants={stagger.item}>
+        <Card className="overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              Historique des périodes
+            </h2>
+            {historiqueLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+          </div>
+          {!historiqueLoading && historique.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm text-slate-400">Aucune période enregistrée.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-xs uppercase tracking-wide">
+                    <th className="px-5 py-3">Période</th>
+                    <th className="px-5 py-3">Collecte</th>
+                    <th className="px-5 py-3 text-center">Soldés</th>
+                    <th className="px-5 py-3 text-center">Partiels</th>
+                    <th className="px-5 py-3 text-center">En attente</th>
+                    <th className="px-5 py-3 text-center">Rejetés</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {historique.map(h => {
+                    const pct = h.totalAttendu > 0
+                      ? Math.round((h.totalCollecte / h.totalAttendu) * 100)
+                      : 0;
+                    return (
+                      <tr key={h.periode} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-5 py-3">
+                          <p className="font-semibold text-slate-800">{formatPeriode(h.periode)}</p>
+                          <p className="text-[10px] text-slate-400">{h.nombreMembres} membre{h.nombreMembres !== 1 ? 's' : ''}</p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${pct >= 100 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                                style={{ width: `${Math.min(pct, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-slate-700">{pct}%</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {formatFCFA(h.totalCollecte)} / {formatFCFA(h.totalAttendu)}
+                          </p>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={`text-xs font-bold ${h.nombrePaye > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{h.nombrePaye}</span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={`text-xs font-bold ${h.nombrePartiel > 0 ? 'text-blue-600' : 'text-slate-400'}`}>{h.nombrePartiel}</span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={`text-xs font-bold ${h.nombreEnAttente > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{h.nombreEnAttente}</span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={`text-xs font-bold ${h.nombreRejete > 0 ? 'text-red-600' : 'text-slate-400'}`}>{h.nombreRejete}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </motion.div>
+
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* MODALS                                                             */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -780,12 +846,10 @@ export default function GroupeDetailPage() {
               className={editForm.formState.errors.nom ? 'border-red-400' : ''} />
             {editForm.formState.errors.nom && <p className="text-xs text-red-500">{editForm.formState.errors.nom.message}</p>}
           </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="eg-desc">Description</Label>
             <Input id="eg-desc" {...editForm.register('description')} disabled={isEditing} />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="eg-montant">Montant/membre (FCFA) *</Label>
@@ -804,7 +868,6 @@ export default function GroupeDetailPage() {
               </select>
             </div>
           </div>
-
           {editError && (
             <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />{editError}
@@ -848,7 +911,6 @@ export default function GroupeDetailPage() {
               <p className="text-xs text-red-500">{addMembreForm.formState.errors.locataireId.message}</p>
             )}
           </div>
-
           {addMembreError && (
             <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />{addMembreError}
@@ -856,7 +918,11 @@ export default function GroupeDetailPage() {
           )}
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <Button variant="outline" type="button" onClick={() => setIsAddMembreOpen(false)} disabled={isAddingMembre}>Annuler</Button>
-            <Button type="submit" disabled={isAddingMembre || (availableLocataires.length === 0 && pageUsers.filter(u => u.role === 'LOCATAIRE').length === 0)} className="gap-1.5">
+            <Button
+              type="submit"
+              disabled={isAddingMembre || (availableLocataires.length === 0 && pageUsers.filter(u => u.role === 'LOCATAIRE').length === 0)}
+              className="gap-1.5"
+            >
               {isAddingMembre && <Loader2 className="h-4 w-4 animate-spin" />}
               {isAddingMembre ? 'Ajout...' : 'Ajouter'}
             </Button>
@@ -865,18 +931,14 @@ export default function GroupeDetailPage() {
       </Modal>
 
       {/* ─── ADD TRANCHE ─── */}
-      <Modal
-        isOpen={!!addingTranche}
-        onClose={() => setAddingTranche(null)}
-        title="Ajouter une tranche de paiement"
-      >
+      <Modal isOpen={!!addingTranche} onClose={() => setAddingTranche(null)} title="Ajouter une tranche de paiement">
         {addingTranche && (
           <form onSubmit={trancheForm.handleSubmit(onTrancheSubmit)} className="space-y-4">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Locataire</span>
                 <span className="font-bold text-slate-800">
-                  {(() => { const l = getLocataireForContrib(addingTranche); return l ? `${l.prenom} ${l.nom}` : '—'; })()}
+                  {[addingTranche.membrePrenom, addingTranche.membreNom].filter(Boolean).join(' ') || '—'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -892,18 +954,14 @@ export default function GroupeDetailPage() {
                 <span className="font-extrabold text-amber-700">{formatFCFA(addingTranche.montantRestant)}</span>
               </div>
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="tr-montant">Montant de la tranche (FCFA) *</Label>
               <Input id="tr-montant" type="number" min="1" max={addingTranche.montantRestant}
                 placeholder={`Max : ${formatFCFA(addingTranche.montantRestant)}`}
                 {...trancheForm.register('montant', { valueAsNumber: true })} disabled={isAddingTranche}
                 className={trancheForm.formState.errors.montant ? 'border-red-400' : ''} />
-              {trancheForm.formState.errors.montant && (
-                <p className="text-xs text-red-500">{trancheForm.formState.errors.montant.message}</p>
-              )}
+              {trancheForm.formState.errors.montant && <p className="text-xs text-red-500">{trancheForm.formState.errors.montant.message}</p>}
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="tr-ref">Référence <span className="text-slate-400 font-normal">(opt.)</span></Label>
@@ -914,7 +972,6 @@ export default function GroupeDetailPage() {
                 <Input id="tr-date" type="date" {...trancheForm.register('datePaiement')} disabled={isAddingTranche} />
               </div>
             </div>
-
             {addTrancheError && (
               <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />{addTrancheError}
@@ -932,18 +989,14 @@ export default function GroupeDetailPage() {
       </Modal>
 
       {/* ─── VIEW TRANCHES ─── */}
-      <Modal
-        isOpen={!!viewingTranches}
-        onClose={() => setViewingTranches(null)}
-        title="Historique des tranches"
-      >
+      <Modal isOpen={!!viewingTranches} onClose={() => setViewingTranches(null)} title="Historique des tranches">
         {viewingTranches && (
           <div className="space-y-4">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Locataire</span>
                 <span className="font-bold text-slate-800">
-                  {(() => { const l = getLocataireForContrib(viewingTranches); return l ? `${l.prenom} ${l.nom}` : '—'; })()}
+                  {[viewingTranches.membrePrenom, viewingTranches.membreNom].filter(Boolean).join(' ') || '—'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -959,7 +1012,6 @@ export default function GroupeDetailPage() {
                 </Badge>
               </div>
             </div>
-
             {tranchesLoading ? (
               <div className="flex justify-center py-6">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -983,7 +1035,6 @@ export default function GroupeDetailPage() {
                 ))}
               </div>
             )}
-
             <div className="flex justify-end pt-3 border-t border-slate-100">
               <Button variant="outline" onClick={() => setViewingTranches(null)}>Fermer</Button>
             </div>
@@ -992,18 +1043,14 @@ export default function GroupeDetailPage() {
       </Modal>
 
       {/* ─── CONFIRM CONTRIBUTION ─── */}
-      <Modal
-        isOpen={!!confirmingContrib}
-        onClose={() => setConfirmingContrib(null)}
-        title="Confirmer le paiement complet"
-      >
+      <Modal isOpen={!!confirmingContrib} onClose={() => setConfirmingContrib(null)} title="Confirmer le paiement complet">
         {confirmingContrib && (
           <form onSubmit={confirmForm.handleSubmit(onConfirmContribSubmit)} className="space-y-4">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Locataire</span>
                 <span className="font-bold text-slate-800">
-                  {(() => { const l = getLocataireForContrib(confirmingContrib); return l ? `${l.prenom} ${l.nom}` : '—'; })()}
+                  {[confirmingContrib.membrePrenom, confirmingContrib.membreNom].filter(Boolean).join(' ') || '—'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1011,14 +1058,12 @@ export default function GroupeDetailPage() {
                 <span className="font-extrabold text-emerald-700">{formatFCFA(confirmingContrib.montant)}</span>
               </div>
             </div>
-
             <div className="flex gap-2.5 p-3 bg-amber-50 border border-amber-100 rounded-xl">
               <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800">
                 Le statut passera à <strong>Soldé</strong>. Cette action est irréversible.
               </p>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="cc-date">Date de paiement</Label>
@@ -1029,7 +1074,6 @@ export default function GroupeDetailPage() {
                 <Input id="cc-ref" placeholder="WAVE-001" {...confirmForm.register('referenceId')} disabled={isConfirmingContrib} />
               </div>
             </div>
-
             {confirmContribError && (
               <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />{confirmContribError}
@@ -1040,6 +1084,64 @@ export default function GroupeDetailPage() {
               <Button type="submit" disabled={isConfirmingContrib} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
                 {isConfirmingContrib && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isConfirmingContrib ? 'Confirmation...' : 'Confirmer le paiement'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* ─── REJECT CONTRIBUTION ─── */}
+      <Modal isOpen={!!rejectingContrib} onClose={() => setRejectingContrib(null)} title="Rejeter la contribution">
+        {rejectingContrib && (
+          <form onSubmit={rejectForm.handleSubmit(onRejectSubmit)} className="space-y-4">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Locataire</span>
+                <span className="font-bold text-slate-800">
+                  {[rejectingContrib.membrePrenom, rejectingContrib.membreNom].filter(Boolean).join(' ') || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Montant</span>
+                <span className="font-bold text-slate-800">{formatFCFA(rejectingContrib.montant)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Période</span>
+                <span className="font-semibold text-slate-700">{formatPeriode(rejectingContrib.periode)}</span>
+              </div>
+            </div>
+            <div className="flex gap-2.5 p-3 bg-red-50 border border-red-100 rounded-xl">
+              <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-800">
+                La contribution sera marquée <strong>Rejetée</strong>. Le locataire devra re-soumettre un paiement.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rj-motif">
+                Motif du rejet <span className="text-slate-400 font-normal">(opt. — 500 caractères max)</span>
+              </Label>
+              <textarea
+                id="rj-motif"
+                rows={3}
+                placeholder="Ex : Chèque sans provision, référence incorrecte…"
+                {...rejectForm.register('motif')}
+                disabled={isRejecting}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700 resize-none disabled:opacity-60"
+              />
+              {rejectForm.formState.errors.motif && (
+                <p className="text-xs text-red-500">{rejectForm.formState.errors.motif.message}</p>
+              )}
+            </div>
+            {rejectError && (
+              <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />{rejectError}
+              </p>
+            )}
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <Button variant="outline" type="button" onClick={() => setRejectingContrib(null)} disabled={isRejecting}>Annuler</Button>
+              <Button type="submit" disabled={isRejecting} className="gap-1.5 bg-red-600 hover:bg-red-700 text-white">
+                {isRejecting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isRejecting ? 'Rejet...' : 'Rejeter la contribution'}
               </Button>
             </div>
           </form>

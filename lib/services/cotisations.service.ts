@@ -2,7 +2,7 @@ import { api } from '@/lib/api';
 import type {
   GroupeResponse, MembreResponse, ContributionResponse,
   TranchePaiementResponse, GroupeSummaryResponse, AddTrancheResultResponse,
-  CotisationStatut, MonGroupeResponse, MonBilanResponse,
+  HistoriquePeriodeResponse, CotisationStatut, MonGroupeResponse, MonBilanResponse,
 } from '@/types/cotisations';
 
 export interface CreateGroupePayload {
@@ -108,8 +108,16 @@ export const cotisationsService = {
     return data;
   },
 
-  async rejectContribution(id: string): Promise<ContributionResponse> {
-    const { data } = await api.patch<ContributionResponse>(`/cotisations/contributions/${id}/reject`);
+  async rejectContribution(id: string, motif?: string): Promise<ContributionResponse> {
+    const { data } = await api.patch<ContributionResponse>(
+      `/cotisations/contributions/${id}/reject`,
+      motif ? { motif } : {},
+    );
+    return data;
+  },
+
+  async getGroupeHistorique(groupeId: string): Promise<HistoriquePeriodeResponse[]> {
+    const { data } = await api.get<HistoriquePeriodeResponse[]>(`/cotisations/groupes/${groupeId}/historique`);
     return data;
   },
 

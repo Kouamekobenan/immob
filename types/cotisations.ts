@@ -18,6 +18,8 @@ export interface MembreResponse {
   id: string;
   groupeId: string;
   locataireId: string;
+  nom: string | null;
+  prenom: string | null;
   estTresorier: boolean;
   estActif: boolean;
   dateAdhesion: string;
@@ -37,7 +39,8 @@ export interface ContributionResponse {
   membreId: string;
   membreNom: string | null;
   membrePrenom: string | null;
-  nom?: string;
+  groupeNom: string | null;
+  motifRejet: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,6 +67,18 @@ export interface GroupeSummaryResponse {
 export interface AddTrancheResultResponse {
   tranche: TranchePaiementResponse;
   contribution: ContributionResponse;
+}
+
+export interface HistoriquePeriodeResponse {
+  periode: string;
+  totalAttendu: number;
+  totalCollecte: number;
+  totalEnAttente: number;
+  nombreMembres: number;
+  nombrePaye: number;
+  nombrePartiel: number;
+  nombreEnAttente: number;
+  nombreRejete: number;
 }
 
 // ── Espace membre (locataire) ────────────────────────────────────────────────
