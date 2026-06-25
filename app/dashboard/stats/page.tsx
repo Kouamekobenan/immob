@@ -10,11 +10,9 @@ import {
   ChevronRight, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import Link from 'next/link';
-
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
-
 function fmtK(n: number): string {
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
@@ -224,7 +222,6 @@ function RevenueChart({ data }: { data: RevenuPoint[] }) {
           </g>
         );
       })()}
-
       {/* Callout — peak solde (only if different point) */}
       {data.length > 1 && peakSolde.i !== peakLoyers.i && (() => {
         const x = xOf(peakSolde.i);
@@ -242,7 +239,6 @@ function RevenueChart({ data }: { data: RevenuPoint[] }) {
     </svg>
   );
 }
-
 /* ── Mini bar chart ─────────────────────────────────────────── */
 function MiniBarChart({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values, 1);
@@ -261,7 +257,6 @@ function MiniBarChart({ values, color }: { values: number[]; color: string }) {
     </div>
   );
 }
-
 /* ── Alert row (message-list style) ────────────────────────── */
 function AlertRow({ title, sub, badge, urgent, href }: {
   title: string; sub: string; badge: string; urgent?: boolean; href: string;

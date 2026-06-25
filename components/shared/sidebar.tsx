@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/context/app-store-context';
 import {
   LayoutDashboard, Users, ShieldAlert, Building2,
-  FileText, CreditCard, Wrench, LogOut, X, UserCircle, Wallet, BarChart3
+  FileText, CreditCard, Wrench, LogOut, X, UserCircle, Wallet, BarChart3, Coins
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
@@ -53,6 +53,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           { label: 'Hub Financier', href: '/dashboard/bailleur', icon: LayoutDashboard },
           { label: 'Analytiques', href: '/dashboard/stats', icon: BarChart3 },
           { label: 'Mes Propriétés', href: '/dashboard/bailleur/properties', icon: Building2 },
+          { label: 'Cotisations', href: '/dashboard/cotisations', icon: Coins },
           { label: 'Dépenses', href: '/dashboard/bailleur/expenses', icon: Wallet },
           { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
@@ -64,6 +65,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           { label: 'Locataires', href: '/dashboard/gerant/locataires', icon: Users },
           { label: 'Contrats Locatifs', href: '/dashboard/gerant/contracts', icon: FileText },
           { label: 'Suivi Paiements', href: '/dashboard/gerant/payments', icon: CreditCard },
+          { label: 'Cotisations', href: '/dashboard/cotisations', icon: Coins },
           { label: 'Maintenance', href: '/dashboard/gerant/tickets', icon: Wrench },
           { label: 'Dépenses', href: '/dashboard/gerant/expenses', icon: Wallet },
           { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
@@ -73,6 +75,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           { label: 'Mon Espace', href: '/dashboard/locataire', icon: LayoutDashboard },
           { label: 'Mon Contrat', href: '/dashboard/locataire/contract', icon: FileText },
           { label: 'Payer Loyer', href: '/dashboard/locataire/payments/pay', icon: CreditCard },
+          { label: 'Cotisations', href: '/dashboard/locataire/cotisations', icon: Coins },
           { label: 'Tickets Panne', href: '/dashboard/locataire/tickets', icon: Wrench },
           { label: 'Mon Profil', href: '/dashboard/profile', icon: UserCircle },
         ];
